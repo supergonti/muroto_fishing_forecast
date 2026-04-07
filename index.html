@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>室戸沖 出船判断システム</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+JP:wght@300;400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  #pw-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #0a0f1e;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    background-image:
+      linear-gradient(rgba(0,200,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  #pw-box {
+    background: #0f2035;
+    border: 1px solid #1e3a5a;
+    border-radius: 10px;
+    padding: 40px 36px;
+    text-align: center;
+    width: 320px;
+    box-shadow: 0 0 40px rgba(0,200,255,.15);
+  }
+  #pw-icon {
+    font-size: 36px; margin-bottom: 16px;
+    width: 70px; height: 70px; border-radius: 50%;
+    border: 2px solid #00c8ff;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    box-shadow: 0 0 20px rgba(0,200,255,.4);
+    animation: pwpulse 3s ease-in-out infinite;
+  }
+  @keyframes pwpulse {
+    0%,100%{box-shadow:0 0 16px rgba(0,200,255,.4)}
+    50%{box-shadow:0 0 32px rgba(0,200,255,.7)}
+  }
+  #pw-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px; font-weight: 700; letter-spacing: 2px;
+    color: #fff; margin-bottom: 6px;
+  }
+  #pw-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; color: #5a7fa0; letter-spacing: 1.5px;
+    margin-bottom: 24px;
+  }
+  #pw-input {
+    width: 100%; padding: 12px 16px;
+    background: #122540; border: 1px solid #1e3a5a;
+    border-radius: 6px; color: #cce8ff;
+    font-size: 22px; letter-spacing: 8px; text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    outline: none; transition: border-color .2s;
+  }
+  #pw-input:focus { border-color: #00c8ff; }
+  #pw-btn {
+    width: 100%; margin-top: 14px; padding: 12px;
+    background: linear-gradient(135deg, #0080aa, #00c8ff);
+    border: none; border-radius: 6px; color: #fff;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px; font-weight: 700; letter-spacing: 2px;
+    cursor: pointer; transition: all .2s;
+    box-shadow: 0 0 16px rgba(0,200,255,.3);
+  }
+  #pw-btn:hover { box-shadow: 0 0 28px rgba(0,200,255,.6); }
+  #pw-err {
+    font-size: 12px; color: #ff4444;
+    margin-top: 10px; min-height: 18px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  #pw-overlay.fade-out {
+    animation: fadeOverlay .4s forwards;
+  }
+  @keyframes fadeOverlay { to { opacity: 0; pointer-events: none; } }
+</style>
+<script>
+(function(){
+  const PW = '7360';
+  function checkPW() {
+    const v = document.getElementById('pw-input').value;
+    if (v === PW) {
+      const ol = document.getElementById('pw-overlay');
+      ol.classList.add('fade-out');
+      setTimeout(() => ol.remove(), 420);
+    } else {
+      document.getElementById('pw-err').textContent = '× パスワードが違います';
+      document.getElementById('pw-input').value = '';
+      document.getElementById('pw-input').focus();
+    }
+  }
+  window.addEventListener('DOMContentLoaded', function(){
+    document.getElementById('pw-input').addEventListener('keydown', function(e){
+      if (e.key === 'Enter') checkPW();
+      document.getElementById('pw-err').textContent = '';
+    });
+    document.getElementById('pw-btn').addEventListener('click', checkPW);
+  });
+  window._checkPW = checkPW;
+})();
+</script>
+<style>
+  :root {
+    --navy:    #0a0f1e;
+    --deep:    #0d1a2e;
+    --panel:   #0f2035;
+    --card:    #122540;
+    --border:  #1e3a5a;
+    --accent:  #00c8ff;
+    --accent2: #00ffb3;
+    --warn:    #ffb300;
+    --danger:  #ff4444;
+    --text:    #cce8ff;
+    --muted:   #5a7fa0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,200,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -200px; right: -200px;
+    width: 700px; height: 700px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,200,255,.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+
+  /* ── ヒーローセクション ── */
+  .hero {
+    text-align: center;
+    padding: 60px 0 70px;
+  }
+
+  .hero-icon {
+    width: 90px; height: 90px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+    margin: 0 auto 28px;
+    box-shadow: 0 0 30px rgba(0,200,255,.4), inset 0 0 15px rgba(0,200,255,.08);
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 20px rgba(0,200,255,.4), inset 0 0 10px rgba(0,200,255,.1); }
+    50%      { box-shadow: 0 0 40px rgba(0,200,255,.7), inset 0 0 20px rgba(0,200,255,.2); }
+  }
+
+  .hero h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 42px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(0,200,255,.5);
+    margin-bottom: 6px;
+  }
+
+  .hero-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 2.5px;
+    margin-bottom: 20px;
+  }
+
+  .hero-desc {
+    max-width: 560px;
+    margin: 0 auto 40px;
+    font-size: 15px;
+    line-height: 1.9;
+    color: var(--text);
+    opacity: .85;
+  }
+
+  .btn-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 16px 42px;
+    background: linear-gradient(135deg, #0080aa, #00c8ff);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 0 28px rgba(0,200,255,.4);
+    transition: all .25s;
+  }
+
+  .btn-main:hover {
+    box-shadow: 0 0 50px rgba(0,200,255,.65);
+    transform: translateY(-2px);
+  }
+
+  /* ── 座標バッジ ── */
+  .coord-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+  }
+
+  .badge-pill {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(0,200,255,.06);
+    border: 1px solid rgba(0,200,255,.22);
+    padding: 5px 14px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  /* ── セパレーター ── */
+  .sep {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 0 56px;
+  }
+
+  /* ── フィーチャーグリッド ── */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 60px;
+  }
+
+  @media(max-width: 680px) { .features { grid-template-columns: 1fr; } }
+
+  .feat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s, transform .2s;
+  }
+
+  .feat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+
+  .feat-card:hover {
+    border-color: rgba(0,200,255,.4);
+    transform: translateY(-3px);
+  }
+
+  .feat-icon { font-size: 28px; margin-bottom: 12px; }
+
+  .feat-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .feat-text {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--muted);
+  }
+
+  /* ── 判定カラーガイド ── */
+  .judge-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px 28px;
+    margin-bottom: 60px;
+  }
+
+  .section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .judge-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  @media(max-width: 600px) { .judge-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .judge-card {
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid;
+    text-align: center;
+  }
+
+  .judge-card .jlabel {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .judge-card .jwave {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    display: block;
+  }
+
+  .j3c { background: rgba(0,255,179,.08);  color: #00ffb3; border-color: rgba(0,255,179,.3); }
+  .j2c { background: rgba(0,200,255,.08);  color: #00c8ff; border-color: rgba(0,200,255,.3); }
+  .j1c { background: rgba(255,179,0,.08);  color: #ffb300; border-color: rgba(255,179,0,.3); }
+  .j0c { background: rgba(255,68,68,.08);  color: #ff4444; border-color: rgba(255,68,68,.3); }
+
+  /* ── スタックセクション ── */
+  .stack-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px 28px;
+    margin-bottom: 60px;
+  }
+
+  .stack-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .stack-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    background: rgba(0,255,179,.06);
+    border: 1px solid rgba(0,255,179,.2);
+    padding: 5px 12px;
+    border-radius: 4px;
+    letter-spacing: .5px;
+  }
+
+  /* ── フッター ── */
+  footer {
+    text-align: center;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+  }
+
+  .footer-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    line-height: 2;
+  }
+
+  .footer-text a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .footer-text a:hover { text-decoration: underline; }
+
+  /* ── GitHub バッジ ── */
+  .gh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 20px;
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-decoration: none;
+    margin-top: 12px;
+    transition: border-color .2s, color .2s;
+  }
+
+  .gh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── アニメ ── */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeUp .6s forwards;
+  }
+
+  @keyframes fadeUp { to { opacity: 1; transform: none; } }
+
+  .delay-1 { animation-delay: .1s; }
+  .delay-2 { animation-delay: .2s; }
+  .delay-3 { animation-delay: .35s; }
+  .delay-4 { animation-delay: .5s; }
+
+  /* ── データソースセクション ── */
+  .api-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 12px;
+  }
+
+  .api-table th {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .api-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(30,58,90,.4);
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .api-table tr:last-child td { border-bottom: none; }
+
+  .api-table code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    background: rgba(0,255,179,.06);
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── パスワード認証オーバーレイ ── -->
+<div id="pw-overlay">
+  <div id="pw-box">
+    <div id="pw-icon">🔐</div>
+    <div id="pw-title">室戸沖 出船判断システム</div>
+    <div id="pw-sub">ENTER PASSWORD TO CONTINUE</div>
+    <input id="pw-input" type="password" maxlength="20" placeholder="••••" autocomplete="off">
+    <button id="pw-btn">UNLOCK</button>
+    <div id="pw-err"></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ── ヒーロー ── -->
+  <div class="hero fade-in">
+    <div class="hero-icon">⚓</div>
+    <h1>室戸沖 出船判断システム</h1>
+    <p class="hero-sub">MUROTO OFFSHORE FORECAST SYSTEM</p>
+    <p class="hero-desc">
+      室戸沖（高知県）への遊漁船出船可否を、気象・海況データから自動判定するシステムです。
+      Open-Meteo の Marine API と Weather API から波高・風速を取得し、5日分のリアルタイム予報を提供します。
+    </p>
+    <a href="muroto_fishing_forecast.html" class="btn-main">
+      🌊 出船判断を確認する
+    </a>
+    <div class="coord-row">
+      <span class="badge-pill">📍 LAT 33.2 / LON 134.2</span>
+      <span class="badge-pill">⏱ 6時・9時・12時 × 5日間</span>
+      <span class="badge-pill">🔄 リアルタイム取得</span>
+    </div>
+  </div>
+
+  <hr class="sep">
+
+  <!-- ── 機能説明 ── -->
+  <div class="features fade-in delay-1">
+    <div class="feat-card">
+      <div class="feat-icon">🌊</div>
+      <div class="feat-title">海況データ自動取得</div>
+      <p class="feat-text">Open-Meteo Marine API から波高データを、Weather API から風速・風向・降水量データをリアルタイムに取得。認証不要・完全無料で利用できます。</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">⚖️</div>
+      <div class="feat-title">独自スコアリング</div>
+      <p class="feat-text">波高だけでなく風速のトレンド（増加・減少）を加味した補正スコアを算出。同じ波高でも風が強まっている場合は危険度を高く評価します。</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📊</div>
+      <div class="feat-title">グラフ＆CSV出力</div>
+      <p class="feat-text">波高・風速の推移を折れ線グラフで可視化。判定結果はCSVでダウンロード可能。予約管理システムへの連携データとして活用できます。</p>
+    </div>
+  </div>
+
+  <!-- ── 判定基準 ── -->
+  <div class="judge-section fade-in delay-2">
+    <div class="section-title">判定基準 — SCORING CRITERIA</div>
+    <div class="judge-grid">
+      <div class="judge-card j3c">
+        <span class="jlabel">◎ 釣り日和</span>
+        <span class="jwave">波高 ≤ 1.0m</span>
+      </div>
+      <div class="judge-card j2c">
+        <span class="jlabel">○ 出船可能</span>
+        <span class="jwave">波高 ≤ 1.3m</span>
+      </div>
+      <div class="judge-card j1c">
+        <span class="jlabel">△ 条件付き</span>
+        <span class="jwave">波高 ≤ 1.7m</span>
+      </div>
+      <div class="judge-card j0c">
+        <span class="jlabel">× 出船不可</span>
+        <span class="jwave">波高 &gt; 1.7m</span>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:14px;line-height:1.8;">
+      ※ 風速トレンド補正あり — 前時刻との差が 0.5m/s 以上の場合、増加時はスコアを1段階悪化、減少時は1段階改善します。
+    </p>
+  </div>
+
+  <!-- ── データソース ── -->
+  <div class="stack-section fade-in delay-3">
+    <div class="section-title">データソース — DATA SOURCES</div>
+    <table class="api-table">
+      <thead>
+        <tr>
+          <th>API</th>
+          <th>取得データ</th>
+          <th>エンドポイント</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Open-Meteo Marine API</td>
+          <td>波高（合成波高）</td>
+          <td><code>marine-api.open-meteo.com/v1/marine</code></td>
+        </tr>
+        <tr>
+          <td>Open-Meteo Weather API</td>
+          <td>風速・風向・降水量</td>
+          <td><code>api.open-meteo.com/v1/forecast</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--muted);margin-top:12px;">対象地点: 室戸沖 (lat: 33.2 / lon: 134.2) — 予報対象時刻: 6時・9時・12時 × 5日間 = 最大15スロット</p>
+  </div>
+
+  <!-- ── 技術スタック ── -->
+  <div class="stack-section fade-in delay-3">
+    <div class="section-title">技術スタック — TECH STACK</div>
+    <div class="stack-list">
+      <span class="stack-tag">Vanilla HTML/CSS/JS</span>
+      <span class="stack-tag">Open-Meteo Marine API</span>
+      <span class="stack-tag">Open-Meteo Weather API</span>
+      <span class="stack-tag">Canvas 2D Charts</span>
+      <span class="stack-tag">CSV Export</span>
+      <span class="stack-tag">Google Fonts</span>
+      <span class="stack-tag">GitHub Pages対応</span>
+    </div>
+  </div>
+
+  <!-- ── フッター ── -->
+  <footer class="fade-in delay-4">
+    <p class="footer-text">
+      室戸沖 出船判断システム — MUROTO OFFSHORE FORECAST SYSTEM<br>
+      データ提供: <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a>（無料・オープンソース気象API）<br>
+      &copy; 2026 Muroto Fishing Forecast
+    </p>
+    <a href="https://github.com/" class="gh-btn" target="_blank">
+      ⬡ GitHub で見る
+    </a>
+  </footer>
+
+</div>
+
+</body>
+</html>
