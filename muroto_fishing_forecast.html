@@ -878,6 +878,17 @@ function parseData(marine, weather) {
 //  メイン実行
 // ============================================================
 async function run() {
+  // ── ローカルファイル（file://）からの起動を検出 ──
+  if (location.protocol === 'file:') {
+    showErr(
+      'このファイルをパソコンから直接開いた場合、ブラウザのセキュリティ制限（CORS）により外部APIへの通信がブロックされます。' +
+      '【対処法】GitHub Pages（https://）で公開したURLをブラウザで開いてください。' +
+      ' 例: https://supergonti.github.io/muroto_fishing_forecast/'
+    );
+    setStatus('⚠ ローカルファイルでは動作しません — GitHub Pages のURLで開いてください');
+    return;
+  }
+
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
   document.getElementById('csv-btn').disabled = true;
@@ -908,7 +919,7 @@ async function run() {
     document.getElementById('live-dot').style.display = 'block';
 
   } catch(e) {
-    showErr(e.message + ' — ネットワーク接続・HTTPS環境を確認してください');
+    showErr('データ取得に失敗しました: ' + e.message);
     setStatus('エラー');
     setProgress(0);
   } finally {
@@ -1189,11 +1200,27 @@ function dlCSV() {
 }
 
 // ============================================================
-//  起動時 自動取得
+//  起動時 自動取得 / ローカル検出
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
-  // GitHub Pages（HTTPS）ならば自動取得
-  if (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  if (location.protocol === 'file:') {
+    // ローカルファイル起動の場合 — プレースホルダーを案内メッセージに差し替え
+    document.getElementById('placeholder').innerHTML = `
+      <div class="placeholder-icon">⚠️</div>
+      <strong style="color:#ffb300;font-size:15px;">ローカルファイルでは動作しません</strong><br>
+      <span style="font-size:13px;line-height:2;">
+        パソコンから直接開いた場合、ブラウザのセキュリティ制限により<br>
+        外部APIへの通信がブロックされます。<br><br>
+        <strong style="color:#00c8ff;">以下のURLをブラウザで開いてください：</strong><br>
+        <a href="https://supergonti.github.io/muroto_fishing_forecast/"
+           style="color:#00ffb3;font-family:monospace;font-size:12px;"
+           target="_blank">
+          https://supergonti.github.io/muroto_fishing_forecast/
+        </a>
+      </span>`;
+    setStatus('⚠ ローカルファイルでは動作しません — GitHub Pages のURLで開いてください');
+  } else if (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    // HTTPS / localhost の場合 — 自動取得
     run();
   }
 });

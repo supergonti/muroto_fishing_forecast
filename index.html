@@ -609,12 +609,32 @@
       データ提供: <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a>（無料・オープンソース気象API）<br>
       &copy; 2026 Muroto Fishing Forecast
     </p>
-    <a href="https://github.com/" class="gh-btn" target="_blank">
+    <a href="https://github.com/supergonti/muroto_fishing_forecast" class="gh-btn" target="_blank">
       ⬡ GitHub で見る
     </a>
   </footer>
 
 </div>
+
+<script>
+// ローカルファイル（file://）で開かれた場合に案内バナーを表示
+if (location.protocol === 'file:') {
+  const banner = document.createElement('div');
+  banner.style.cssText = [
+    'position:fixed','bottom:0','left:0','right:0','z-index:8000',
+    'background:#1a2a10','border-top:2px solid #ffb300',
+    'color:#ffb300','padding:12px 20px','font-size:13px',
+    'font-family:monospace','text-align:center','line-height:1.8'
+  ].join(';');
+  banner.innerHTML =
+    '⚠ パソコンから直接開いた場合、データ取得は動作しません。' +
+    'ブラウザで <a href="https://supergonti.github.io/muroto_fishing_forecast/" ' +
+    'style="color:#00ffb3;" target="_blank">' +
+    'https://supergonti.github.io/muroto_fishing_forecast/</a> を開いてください。' +
+    ' <span style="cursor:pointer;margin-left:12px;color:#5a7fa0;" onclick="this.parentNode.remove()">✕</span>';
+  document.body.appendChild(banner);
+}
+</script>
 
 </body>
 </html>
