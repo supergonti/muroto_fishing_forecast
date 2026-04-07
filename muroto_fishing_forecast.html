@@ -850,9 +850,54 @@ async function fetchWithTimeout(url, timeoutMs = 15000) {
 }
 
 // ============================================================
-//  API取得 — Open-Meteo（直接fetch、HTTPS環境で動作）
+//  スコアをローカルJSONの行データに付与
+// ============================================================
+function addScores(rawRows) {
+  let pw = null;
+  return rawRows.map(r => {
+    const sc = calcScore(r.wave, r.wind, pw);
+    pw = r.wind;
+    return { ...r, sc };
+  });
+}
+
+// ============================================================
+//  データ取得（優先順位）
+//  1. forecast_data.json（GitHub Actionsが自動生成・CORS不要）
+//  2. Open-Meteo 直接fetch（フォールバック）
 // ============================================================
 async function fetchOpenMeteo() {
+  // ── 1. ローカルJSON を試みる ──────────────────────────────
+  try {
+    setStatus('予報データを読み込み中...');
+    setProgress(15);
+    const res = await fetchWithTimeout('./forecast_data.json', 8000);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rows && data.rows.length > 0) {
+        const updated  = new Date(data.updated);
+        const hoursOld = ((Date.now() - updated) / 3600000).toFixed(1);
+        const updJST   = updated.toLocaleString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+          month: 'numeric', day: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        });
+        setProgress(70);
+        setStatus(`JSONデータ読込完了 — ${updJST}更新（${hoursOld}時間前）`);
+        if (hoursOld > 5) {
+          showErr(`⚠ データが古い可能性があります（最終更新: ${updJST}）。GitHubのActionsタブからワークフローを手動実行してください。`);
+        }
+        return addScores(data.rows);
+      }
+    }
+  } catch(e) {
+    // JSONなし or 取得失敗 → 直接APIへフォールバック
+  }
+
+  // ── 2. Open-Meteo 直接fetch（フォールバック）────────────
+  setStatus('Marine API に直接接続中...');
+  setProgress(20);
+
   const marineUrl =
     `https://marine-api.open-meteo.com/v1/marine` +
     `?latitude=${LAT}&longitude=${LON}` +
@@ -866,8 +911,6 @@ async function fetchOpenMeteo() {
     `&wind_speed_unit=ms` +
     `&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}`;
 
-  setStatus('Marine API に接続中...');
-  setProgress(20);
   const [mRes, wRes] = await Promise.all([
     fetchWithTimeout(marineUrl),
     fetchWithTimeout(weatherUrl)
