@@ -80,20 +80,51 @@
 <script>
 (function(){
   const PW = '7360';
-  function checkPW() {
-    const v = document.getElementById('pw-input').value;
-    if (v === PW) {
-      const ol = document.getElementById('pw-overlay');
+  const SK = 'muroto_auth'; // sessionStorage キー（両ページ共通）
+
+  // 認証済みとしてオーバーレイを消し、自動取得を開始する
+  function unlock() {
+    const ol = document.getElementById('pw-overlay');
+    if (ol) {
       ol.classList.add('fade-out');
-      setTimeout(() => ol.remove(), 420);
+      setTimeout(function() {
+        ol.remove();
+        startIfHttps();
+      }, 420);
+    } else {
+      startIfHttps();
+    }
+  }
+
+  // HTTPS / localhost のときだけ自動取得（パスワード解除後に呼ぶ）
+  function startIfHttps() {
+    if (location.protocol === 'https:' ||
+        location.hostname === 'localhost' ||
+        location.hostname === '127.0.0.1') {
+      if (typeof run === 'function') run();
+    }
+  }
+
+  function checkPW() {
+    var v = document.getElementById('pw-input').value;
+    if (v === PW) {
+      sessionStorage.setItem(SK, '1');
+      unlock();
     } else {
       document.getElementById('pw-err').textContent = '× パスワードが違います';
       document.getElementById('pw-input').value = '';
       document.getElementById('pw-input').focus();
     }
   }
-  window.addEventListener('DOMContentLoaded', function(){
-    document.getElementById('pw-input').addEventListener('keydown', function(e){
+
+  window.addEventListener('DOMContentLoaded', function() {
+    // 同一セッション内で既に認証済みならパスワード不要
+    if (sessionStorage.getItem(SK) === '1') {
+      unlock();
+      return;
+    }
+    // 未認証 — ボタン・Enterキーでチェック
+    document.getElementById('pw-input').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') checkPW();
       document.getElementById('pw-err').textContent = '';
     });
@@ -800,6 +831,25 @@ function calcScore(wave, windNow, windPrev) {
 }
 
 // ============================================================
+//  タイムアウト付きfetch（15秒で中断）
+// ============================================================
+async function fetchWithTimeout(url, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(tid);
+    return res;
+  } catch(e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') {
+      throw new Error('接続タイムアウト（15秒）— ネットワークを確認してください');
+    }
+    throw e;
+  }
+}
+
+// ============================================================
 //  API取得 — Open-Meteo（直接fetch、HTTPS環境で動作）
 // ============================================================
 async function fetchOpenMeteo() {
@@ -819,8 +869,8 @@ async function fetchOpenMeteo() {
   setStatus('Marine API に接続中...');
   setProgress(20);
   const [mRes, wRes] = await Promise.all([
-    fetch(marineUrl),
-    fetch(weatherUrl)
+    fetchWithTimeout(marineUrl),
+    fetchWithTimeout(weatherUrl)
   ]);
 
   if (!mRes.ok) throw new Error('Marine API エラー: ' + mRes.status);
@@ -1200,11 +1250,10 @@ function dlCSV() {
 }
 
 // ============================================================
-//  起動時 自動取得 / ローカル検出
+//  起動時 ローカルファイル検出（自動取得はパスワード解除後に実行）
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
   if (location.protocol === 'file:') {
-    // ローカルファイル起動の場合 — プレースホルダーを案内メッセージに差し替え
     document.getElementById('placeholder').innerHTML = `
       <div class="placeholder-icon">⚠️</div>
       <strong style="color:#ffb300;font-size:15px;">ローカルファイルでは動作しません</strong><br>
@@ -1219,10 +1268,8 @@ window.addEventListener('DOMContentLoaded', () => {
         </a>
       </span>`;
     setStatus('⚠ ローカルファイルでは動作しません — GitHub Pages のURLで開いてください');
-  } else if (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    // HTTPS / localhost の場合 — 自動取得
-    run();
   }
+  // ※ HTTPS環境での自動取得はパスワード認証完了後に unlock() → run() で実行される
 });
 </script>
 </body>

@@ -80,26 +80,40 @@
 <script>
 (function(){
   const PW = '7360';
-  function checkPW() {
-    const v = document.getElementById('pw-input').value;
-    if (v === PW) {
-      const ol = document.getElementById('pw-overlay');
+  const SK = 'muroto_auth'; // muroto_fishing_forecast.html と共通キー
+
+  function unlock() {
+    var ol = document.getElementById('pw-overlay');
+    if (ol) {
       ol.classList.add('fade-out');
-      setTimeout(() => ol.remove(), 420);
+      setTimeout(function() { ol.remove(); }, 420);
+    }
+  }
+
+  function checkPW() {
+    var v = document.getElementById('pw-input').value;
+    if (v === PW) {
+      sessionStorage.setItem(SK, '1');
+      unlock();
     } else {
       document.getElementById('pw-err').textContent = '× パスワードが違います';
       document.getElementById('pw-input').value = '';
       document.getElementById('pw-input').focus();
     }
   }
+
   window.addEventListener('DOMContentLoaded', function(){
+    // 同一セッション内で既に認証済みならパスワード不要
+    if (sessionStorage.getItem(SK) === '1') {
+      unlock();
+      return;
+    }
     document.getElementById('pw-input').addEventListener('keydown', function(e){
       if (e.key === 'Enter') checkPW();
       document.getElementById('pw-err').textContent = '';
     });
     document.getElementById('pw-btn').addEventListener('click', checkPW);
   });
-  window._checkPW = checkPW;
 })();
 </script>
 <style>
