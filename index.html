@@ -290,63 +290,75 @@ function calcScore(wave, windNow, windPrev, windDir, waveDir) {
 }
 
 // ============================================================
-//  データ取得 — Anthropic API + web_search経由
+//  データ取得 — Open-Meteo API 直接呼び出し（APIキー不要）
 // ============================================================
 async function run() {
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
   hideErr();
   document.getElementById('prog').style.display = 'block';
-  st('APIへ接続中...');
+  st('海況データ取得中...');
 
-  const prompt = `以下の2つのOpen-Meteo APIのURLからデータを取得してください。
+  const MARINE_URL =
+    `https://marine-api.open-meteo.com/v1/marine` +
+    `?latitude=${LAT}&longitude=${LON}` +
+    `&hourly=wave_height,wave_direction` +
+    `&timezone=Asia%2FTokyo&forecast_days=5`;
 
-Marine API: https://marine-api.open-meteo.com/v1/marine?latitude=33.2&longitude=134.2&hourly=wave_height,wave_direction&timezone=Asia%2FTokyo&forecast_days=5
-
-Weather API: https://api.open-meteo.com/v1/forecast?latitude=33.2&longitude=134.2&hourly=wind_speed_10m,wind_direction_10m,precipitation&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=5
-
-両APIのデータを取得し、時刻が6時・9時・12時のデータのみ抽出して、以下のJSON形式のみで返してください（マークダウン・説明文は一切不要）：
-{"rows":[{"t":"2026-04-07T06:00","wave":0.9,"wind":4.2,"dir":180,"waveDir":220,"rain":0.1},...]
-}
-
-フィールド説明:
-- t: ISO8601 JST時刻
-- wave: 波高(m)
-- wind: 風速(m/s)
-- dir: 風向(度, 0=北)
-- waveDir: 波向き(度, 0=北) ※Marine APIのwave_direction
-- rain: 降水量(mm)`;
+  const WEATHER_URL =
+    `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${LAT}&longitude=${LON}` +
+    `&hourly=wind_speed_10m,wind_direction_10m,precipitation` +
+    `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=5`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4000,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-        messages: [{ role: "user", content: prompt }]
-      })
+    const [marineRes, weatherRes] = await Promise.all([
+      fetch(MARINE_URL),
+      fetch(WEATHER_URL)
+    ]);
+
+    if (!marineRes.ok)  throw new Error('Marine API エラー: ' + marineRes.status);
+    if (!weatherRes.ok) throw new Error('Weather API エラー: ' + weatherRes.status);
+
+    const marine  = await marineRes.json();
+    const weather = await weatherRes.json();
+
+    // 気象データのタイムスタンプ → インデックスマップ
+    const wMap = {};
+    weather.hourly.time.forEach((t, i) => { wMap[t] = i; });
+
+    const rawRows = [];
+    marine.hourly.time.forEach((t, i) => {
+      const h = parseInt(t.slice(11, 13), 10);
+      if (!TH.includes(h)) return;
+      const wi = wMap[t];
+      if (wi === undefined) return;
+      const wave = marine.hourly.wave_height[i];
+      const wind = weather.hourly.wind_speed_10m[wi];
+      if (wave == null || wind == null) return;
+      rawRows.push({
+        t,
+        wave:    Math.round(wave * 100) / 100,
+        wind:    Math.round(wind * 10)  / 10,
+        dir:     Math.round(weather.hourly.wind_direction_10m[wi] || 0),
+        waveDir: marine.hourly.wave_direction[i] != null
+                   ? Math.round(marine.hourly.wave_direction[i]) : null,
+        rain:    Math.round((weather.hourly.precipitation[wi] || 0) * 10) / 10,
+      });
     });
 
-    if (!res.ok) throw new Error('Anthropic API error: ' + res.status);
-    const data = await res.json();
-    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
-    const m = text.match(/\{[\s\S]*"rows"[\s\S]*\}/);
-    if (!m) throw new Error('JSONが見つかりません');
-    const json = JSON.parse(m[0]);
-    if (!json.rows || !json.rows.length) throw new Error('データが空です');
+    if (!rawRows.length) throw new Error('対象時刻のデータが見つかりません');
 
-    buildRows(json.rows);
+    buildRows(rawRows);
     renderAll();
     document.getElementById('csv-btn').style.display = '';
-    document.getElementById('foot').style.display = '';
+    document.getElementById('foot').style.display   = '';
     st('完了 — ' + new Date().toLocaleString('ja-JP', {
       month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
     }) + '更新');
 
   } catch(e) {
-    showErr('取得失敗: ' + e.message + ' — ネットワーク接続やAPIキーを確認してください');
+    showErr('取得失敗: ' + e.message + ' — ネットワーク接続を確認してください');
     st('エラー');
   } finally {
     btn.disabled = false;
