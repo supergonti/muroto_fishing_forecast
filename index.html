@@ -109,6 +109,7 @@ td{padding:8px 10px;color:#1a1a2e;vertical-align:middle}
 .pt-trend-up{background:#ffe8e8;color:#800000;border-color:#e06060}
 .pt-trend-dn{background:#e8f8e8;color:#006000;border-color:#60b060}
 .pt-north{background:#e8f8ff;color:#004080;border-color:#60a0e0}
+.pt-ew{background:#f0f0f8;color:#404060;border-color:#9090c0}
 
 /* レジェンド */
 .legend{padding:10px 12px;display:flex;gap:12px;flex-wrap:wrap;border-top:1px solid #e0e4ea;background:#fafbfc}
@@ -171,23 +172,23 @@ td{padding:8px 10px;color:#1a1a2e;vertical-align:middle}
       <div class="logic-grid">
         <div class="lf">
           <div class="lf-name">① 波高ベーススコア</div>
-          <div class="lf-desc">≤1.0m:◎ / ≤1.5m:○ / ≤2.0m:△ / >2.0m:×<br>グレーゾーン 1.0〜1.5m で補正が効く</div>
+          <div class="lf-desc">≤0.8m → 3（◎良好）<br>>0.8〜≤1.2m → 2（○グレーゾーン）<br>>1.2〜≤1.6m → 1（△厳しい）<br>>1.6m → 0（×出船不可）</div>
         </div>
         <div class="lf lf-danger">
-          <div class="lf-name">② 南風ペナルティ</div>
-          <div class="lf-desc">風向135〜225°（SE〜SW）かつ<br>風速≥8m/s → スコア −1<br>室戸沖は南風で波が成長しやすい</div>
+          <div class="lf-name">② 風向ペナルティ</div>
+          <div class="lf-desc">南系135〜225° かつ風速>6m/s → −0.5<br>東西系（南北以外） → −0.25<br>北系315〜45° → ±0（北風◎表示のみ）</div>
         </div>
         <div class="lf lf-danger">
           <div class="lf-name">③ 逆波ペナルティ</div>
-          <div class="lf-desc">風向と波向きの差が120°以上 → −1<br>差90〜120°（交差波）→ −0.5<br>三角波・急峻波のリスク評価</div>
+          <div class="lf-desc">風向と波向きの差≥120°（逆方向）→ −0.2<br>差90〜120°（交差波）→ −0.1<br>差<90°（同方向）→ ±0</div>
         </div>
         <div class="lf lf-warn">
           <div class="lf-name">④ グレーゾーン複合補正</div>
-          <div class="lf-desc">1.0〜1.5m かつ②＆③が同時発生<br>→ さらに −1（強制 × 判定）<br>小波でも危険な条件を正確に評価</div>
+          <div class="lf-desc">波高>0.8m かつ ②南風 AND ③逆波/交差波が同時発生<br>→ さらに −0.2<br>「波は小さいが悪条件」を正確に評価</div>
         </div>
         <div class="lf">
           <div class="lf-name">⑤ 風速トレンド補正</div>
-          <div class="lf-desc">前スロット比 +0.5m/s↑ → −1<br>前スロット比 −0.5m/s↓ → +1<br>海況の変化方向を反映</div>
+          <div class="lf-desc">前スロット比 +0.5m/s↑ → −0.2<br>前スロット比 −0.5m/s↓ → +0.2<br>小数第二位四捨五入→0〜3にクリップ</div>
         </div>
         <div class="lf lf-good">
           <div class="lf-name">予約システム連携</div>
@@ -248,53 +249,66 @@ function angleDiff(a, b) {
 function calcScore(wave, windNow, windPrev, windDir, waveDir) {
   const tags = [];
 
-  // ① 波高ベーススコア
+  // ① 波高ベーススコア（新閾値）
+  // ≤0.8m:3 / >0.8〜≤1.2m:2(グレーゾーン) / >1.2〜≤1.6m:1(厳しい) / >1.6m:0
   let s;
   if      (wave <= 0.8) s = 3;
-  else if (wave <= 1.2) s = 2;   // グレーゾーン
+  else if (wave <= 1.2) s = 2;
   else if (wave <= 1.6) s = 1;
   else                  s = 0;
 
-  // ② 南風ペナルティ（室戸沖特性：南系風で波が成長しやすい）
+  // ② 風向ペナルティ
+  // 南系(135〜225°) かつ風速>6m/s → -0.5
+  // 東西系(それ以外) → -0.25
+  // 北系(315〜45°)  → ±0（タグのみ表示）
   const inSouth = windDir >= 135 && windDir <= 225;
   const inNorth = windDir >= 315 || windDir <= 45;
   let southPenalty = false;
 
-  if (inSouth && windNow >= 8) {
-    s -= 1;
+  if (inSouth && windNow > 6) {
+    s -= 0.5;
     southPenalty = true;
     tags.push({ cls: 'pt-south', lbl: '南風↑' });
   } else if (inNorth) {
     tags.push({ cls: 'pt-north', lbl: '北風◎' });
+  } else {
+    // 東西系
+    s -= 0.25;
+    tags.push({ cls: 'pt-ew', lbl: '東西風' });
   }
 
-  // ③ 逆波ペナルティ（風向 vs 波向きの干渉）
+  // ③ 逆波ペナルティ（風向 vs 波向きの角度差）
+  // ≥120° → -0.2 / 90〜120° → -0.1 / <90° → ±0
   let opposePenalty = false;
   if (waveDir != null) {
     const diff = angleDiff(windDir, waveDir);
     if (diff >= 120) {
-      s -= 1;
+      s -= 0.2;
       opposePenalty = true;
       tags.push({ cls: 'pt-oppose', lbl: '逆波' });
     } else if (diff >= 90) {
-      s -= 0.5;
+      s -= 0.1;
+      opposePenalty = true;   // 交差波も複合チェック対象
       tags.push({ cls: 'pt-cross', lbl: '交差波' });
     }
   }
 
-  // ④ グレーゾーン複合補正（0.8〜1.2m かつ ②③同時発生）
-  if (wave > 0.8 && wave <= 1.2 && southPenalty && opposePenalty) {
-    s -= 1;
+  // ④ グレーゾーン複合補正（wave>0.8m かつ ②南風 AND ③逆波/交差波 同時発生）
+  // 「波は小さいが悪条件」をさらに -0.2 加算
+  if (wave > 0.8 && southPenalty && opposePenalty) {
+    s -= 0.2;
     tags.push({ cls: 'pt-compound', lbl: '複合悪化' });
   }
 
-  // ⑤ 風速トレンド補正
+  // ⑤ 風速トレンド補正（前スロット比 ±0.5m/s → ±0.2）
   if (windPrev != null) {
-    if      (windNow > windPrev + 0.5) { s -= 1; tags.push({ cls: 'pt-trend-up', lbl: '風↑' }); }
-    else if (windNow < windPrev - 0.5) { s += 1; tags.push({ cls: 'pt-trend-dn', lbl: '風↓' }); }
+    if      (windNow > windPrev + 0.5) { s -= 0.2; tags.push({ cls: 'pt-trend-up', lbl: '風↑' }); }
+    else if (windNow < windPrev - 0.5) { s += 0.2; tags.push({ cls: 'pt-trend-dn', lbl: '風↓' }); }
   }
 
-  return { score: Math.max(0, Math.min(3, Math.round(s))), tags };
+  // 小数点第二位を四捨五入（1桁精度）→ 0〜3 でクリップ → 整数判定レベルに変換
+  const s1 = Math.round(s * 10) / 10;
+  return { score: Math.max(0, Math.min(3, Math.round(s1))), tags };
 }
 
 // ============================================================
