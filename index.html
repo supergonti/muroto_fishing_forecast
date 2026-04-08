@@ -59,14 +59,26 @@ body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;b
 .tbl-wrap{background:#fff;border:1px solid #e0e4ea;border-radius:12px;overflow:hidden;margin-bottom:16px}
 .tbl-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e0e4ea;background:#fafbfc}
 .tbl-head h2{font-size:13px;font-weight:600;color:#444}
-table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{padding:9px 12px;text-align:left;font-weight:600;font-size:11px;color:#888;background:#fafbfc;border-bottom:1px solid #e0e4ea}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+thead th{padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:#888;background:#fafbfc;border-bottom:1px solid #e0e4ea}
 tbody tr{border-bottom:1px solid #f0f2f5;transition:background .1s}
 tbody tr:hover{background:#f8f9fb}
 tbody tr:last-child{border-bottom:none}
 tr.dsep td{font-size:11px;font-weight:600;color:#666;background:#f5f7fa;padding:6px 12px;border-bottom:1px solid #e0e4ea}
-td{padding:9px 12px;color:#1a1a2e;vertical-align:middle}
-.td-time{font-family:monospace;font-size:11px;color:#666;white-space:nowrap}
+td{padding:8px 10px;color:#1a1a2e;vertical-align:middle}
+.td-time{font-family:monospace;font-size:13px;font-weight:700;color:#1a1a2e;white-space:nowrap}
+.td-judge-inline{margin-top:3px}
+/* モバイル非表示列 */
+@media(max-width:640px){
+  .hide-mob{display:none!important}
+  td{padding:7px 6px;font-size:11px}
+  thead th{padding:7px 6px;font-size:10px}
+  .wval{font-size:12px}
+  .badge{font-size:10px;padding:2px 6px}
+  .notif-badge{font-size:10px;padding:2px 5px}
+  .ptag{font-size:9px}
+  .hd-coord{display:none}
+}
 
 /* 波高バー */
 .wrow{display:flex;align-items:center;gap:6px}
@@ -118,7 +130,7 @@ td{padding:9px 12px;color:#1a1a2e;vertical-align:middle}
   <span class="hd-icon">⚓</span>
   <div>
     <div class="hd-title">室戸沖 出船判断システム</div>
-    <div class="hd-sub">MUROTO OFFSHORE — 5日間予報 / 6・9・12時</div>
+    <div class="hd-sub">MUROTO OFFSHORE — 5日間予報 / 0・6・12・18時</div>
   </div>
   <div class="hd-badge">
     <span class="hd-ver">v3</span>
@@ -190,7 +202,7 @@ td{padding:9px 12px;color:#1a1a2e;vertical-align:middle}
 // ============================================================
 //  設定
 // ============================================================
-const LAT = 33.2, LON = 134.2, TH = [6, 9, 12];
+const LAT = 33.2, LON = 134.2, TH = [0, 6, 12, 18];
 
 const JD = [
   { l: '× 出船不可', c: 'j0', notif: '❌ 中止', nc: 'notif-ng' },
@@ -238,9 +250,9 @@ function calcScore(wave, windNow, windPrev, windDir, waveDir) {
 
   // ① 波高ベーススコア
   let s;
-  if      (wave <= 1.0) s = 3;
-  else if (wave <= 1.5) s = 2;   // グレーゾーン（拡張）
-  else if (wave <= 2.0) s = 1;
+  if      (wave <= 0.8) s = 3;
+  else if (wave <= 1.2) s = 2;   // グレーゾーン
+  else if (wave <= 1.6) s = 1;
   else                  s = 0;
 
   // ② 南風ペナルティ（室戸沖特性：南系風で波が成長しやすい）
@@ -270,8 +282,8 @@ function calcScore(wave, windNow, windPrev, windDir, waveDir) {
     }
   }
 
-  // ④ グレーゾーン複合補正（1.0〜1.5m かつ ②③同時発生）
-  if (wave > 1.0 && wave <= 1.5 && southPenalty && opposePenalty) {
+  // ④ グレーゾーン複合補正（0.8〜1.2m かつ ②③同時発生）
+  if (wave > 0.8 && wave <= 1.2 && southPenalty && opposePenalty) {
     s -= 1;
     tags.push({ cls: 'pt-compound', lbl: '複合悪化' });
   }
@@ -417,15 +429,25 @@ function renderAll() {
   renderTable();
 }
 
-// 日別総合スコアを計算（その日のスロットの平均を四捨五入）
+// 日別総合スコアを計算（6時・12時の平均を四捨五入）
 function calcDayScores() {
   const map = {};
   rows.forEach(r => {
     const dt = r.t.slice(0, 10);
+    const h  = parseInt(r.t.slice(11, 13), 10);
+    if (h !== 6 && h !== 12) return;   // 6時と12時のみ使用
     if (!map[dt]) map[dt] = [];
     map[dt].push(r.sc);
   });
   const result = {};
+  // 6時・12時データがない日は全スロット平均にフォールバック
+  rows.forEach(r => {
+    const dt = r.t.slice(0, 10);
+    if (!result[dt] && !map[dt]) {
+      if (!map[dt]) map[dt] = [];
+      map[dt].push(r.sc);
+    }
+  });
   Object.keys(map).forEach(dt => {
     const scores = map[dt];
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
@@ -438,35 +460,40 @@ function renderTable() {
   const WC = ['#e06b6b','#d4aa00','#4a80d0','#4a9f4a'];
   const dayScores = calcDayScores();
 
+  // 列: 時刻+判定 / 波高 / 風速・風向 / 波向き(hide-mob) / 降水量(hide-mob) / 送信
   let h = `<div class="tbl-head"><h2>🌊 海況予報 / 出船判定</h2></div>
     <table><thead><tr>
-      <th>日時</th>
-      <th>波高</th>
-      <th>風速 / 風向</th>
-      <th>波向き</th>
-      <th>降水量</th>
-      <th>判定</th>
-      <th>送信ステータス</th>
+      <th style="width:18%">時刻</th>
+      <th style="width:20%">波高</th>
+      <th style="width:32%">風速・風向</th>
+      <th class="hide-mob" style="width:12%">波向き</th>
+      <th class="hide-mob" style="width:8%">雨</th>
+      <th style="width:10%">送信</th>
     </tr></thead><tbody>`;
 
   let ld = '';
   rows.forEach((r, i) => {
-    const dt = r.t.slice(0, 10), tm = r.t.slice(11, 16);
+    const dt = r.t.slice(0, 10);
+    const tm = r.t.slice(11, 16);
+
+    // 日付区切り行（総合判定付き）
     if (dt !== ld) {
-      const d   = new Date(r.t + (r.t.length === 16 ? ':00' : ''));
+      const d   = new Date(r.t + ':00');
       const ds  = d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' });
-      const dsc = dayScores[dt];
+      const dsc = dayScores[dt] != null ? dayScores[dt] : 0;
       const dj  = JD[dsc];
-      h += `<tr class="dsep"><td colspan="7" style="display:flex;align-items:center;justify-content:space-between">
-        <span>${ds}</span>
-        <span class="badge ${dj.c}" style="font-size:11px;margin-right:4px">総合: ${dj.l}</span>
-      </td></tr>`;
+      h += `<tr class="dsep">
+        <td colspan="6">
+          <span>${ds}</span>
+          <span class="badge ${dj.c}" style="font-size:10px;margin-left:8px;vertical-align:middle">総合 ${dj.l}</span>
+        </td>
+      </tr>`;
       ld = dt;
     }
 
-    const j   = JD[r.sc];
-    const ww  = Math.min(100, (r.wave / 2.5) * 100);
-    const wc  = WC[r.sc];
+    const j  = JD[r.sc];
+    const ww = Math.min(100, (r.wave / 2.0) * 100);
+    const wc = WC[r.sc];
 
     // 風速トレンド矢印
     let tr = '';
@@ -476,37 +503,39 @@ function renderTable() {
         ? '<span style="color:#c0392b;font-size:10px">↑</span>'
         : df < -0.5
           ? '<span style="color:#27ae60;font-size:10px">↓</span>'
-          : '<span style="color:#999;font-size:10px">→</span>';
+          : '';
     }
 
-    // ペナルティタグ HTML
+    // ペナルティタグ
     const tagHtml = r.tags.length > 0
       ? `<div class="ptags">${r.tags.map(t => `<span class="ptag ${t.cls}">${t.lbl}</span>`).join('')}</div>`
       : '';
 
-    // 波向き表示
+    // 波向き
     const wdHtml = r.waveDir != null
       ? `${d2a(r.waveDir)} ${d2d(r.waveDir)}`
-      : '<span style="color:#bbb;font-size:10px">—</span>';
+      : '<span style="color:#bbb">—</span>';
 
     h += `<tr>
-      <td class="td-time">${dt}<br>${tm}</td>
+      <td>
+        <div class="td-time">${tm}</div>
+        <div class="td-judge-inline">
+          <span class="badge ${j.c}" style="font-size:10px;padding:2px 6px">${j.l}</span>
+        </div>
+      </td>
       <td>
         <div class="wrow">
           <div class="wbar"><div class="wfill" style="width:${ww.toFixed(0)}%;background:${wc}"></div></div>
           <span class="wval" style="color:${wc}">${Number(r.wave).toFixed(2)}m</span>
         </div>
       </td>
-      <td style="font-size:12px">
-        ${d2a(r.dir)} <strong>${Number(r.wind).toFixed(1)}</strong>m/s ${tr}
+      <td style="font-size:11px">
+        ${d2a(r.dir)}<strong>${Number(r.wind).toFixed(1)}</strong>m/s${tr}
         <span style="font-size:10px;color:#888">${d2d(r.dir)}</span>
         ${tagHtml}
       </td>
-      <td style="font-size:11px;color:#555">${wdHtml}</td>
-      <td style="font-size:11px;color:#666">${Number(r.rain).toFixed(1)}mm</td>
-      <td>
-        <span class="badge ${j.c}">${j.l}</span>
-      </td>
+      <td class="hide-mob" style="font-size:11px;color:#555">${wdHtml}</td>
+      <td class="hide-mob" style="font-size:11px;color:#666">${Number(r.rain).toFixed(1)}mm</td>
       <td>
         <span class="notif-badge ${j.nc}">${j.notif}</span>
       </td>
@@ -515,14 +544,14 @@ function renderTable() {
 
   h += `</tbody></table>
     <div class="legend">
-      <span class="leg"><span class="leg-dot" style="background:#4a9f4a"></span>◎ 釣り日和 ≤1.0m</span>
-      <span class="leg"><span class="leg-dot" style="background:#4a80d0"></span>○ 出船可能 ≤1.5m</span>
-      <span class="leg"><span class="leg-dot" style="background:#d4aa00"></span>△ 未定・要確認</span>
-      <span class="leg"><span class="leg-dot" style="background:#e06b6b"></span>× 出船不可</span>
+      <span class="leg"><span class="leg-dot" style="background:#4a9f4a"></span>◎ ≤0.8m</span>
+      <span class="leg"><span class="leg-dot" style="background:#4a80d0"></span>○ ≤1.2m</span>
+      <span class="leg"><span class="leg-dot" style="background:#d4aa00"></span>△ ≤1.6m</span>
+      <span class="leg"><span class="leg-dot" style="background:#e06b6b"></span>× >1.6m</span>
       <span style="font-size:10px;color:#aaa;margin-left:4px">|</span>
-      <span class="leg"><span class="ptag pt-south" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #e09050;background:#fff0e0;color:#a04000">南風↑</span> 波成長リスク</span>
-      <span class="leg"><span class="ptag pt-oppose" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #a060e0;background:#f0e8ff;color:#5020a0">逆波</span> 方向逆行</span>
-      <span class="leg"><span class="ptag pt-compound" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #e04060;background:#ffe8e8;color:#a00020">複合悪化</span> グレーゾーン複合</span>
+      <span class="leg"><span class="ptag pt-south" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #e09050;background:#fff0e0;color:#a04000">南風↑</span></span>
+      <span class="leg"><span class="ptag pt-oppose" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #a060e0;background:#f0e8ff;color:#5020a0">逆波</span></span>
+      <span class="leg"><span class="ptag pt-compound" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #e04060;background:#ffe8e8;color:#a00020">複合</span></span>
     </div>`;
   document.getElementById('tw').innerHTML = h;
 }

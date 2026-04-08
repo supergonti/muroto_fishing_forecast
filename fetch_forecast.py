@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timezone
 
 LAT, LON, DAYS = 33.2, 134.2, 5
-TARGET_HOURS = [6, 9, 12]
+TARGET_HOURS = [0, 6, 12, 18]
 
 
 def fetch_json(url):
