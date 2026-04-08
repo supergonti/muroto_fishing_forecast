@@ -135,45 +135,6 @@ td{padding:9px 12px;color:#1a1a2e;vertical-align:middle}
     <span class="status" id="st">待機中 — ボタンを押してください</span>
   </div>
 
-  <!-- 判定ロジック説明 -->
-  <div class="logic-panel">
-    <div class="logic-title">🔍 v3 判定ロジック（5ファクター）</div>
-    <div class="logic-grid">
-      <div class="lf">
-        <div class="lf-name">① 波高ベーススコア</div>
-        <div class="lf-desc">≤1.0m:◎ / ≤1.5m:○ / ≤2.0m:△ / >2.0m:×<br>グレーゾーン 1.0〜1.5m で補正が効く</div>
-      </div>
-      <div class="lf lf-danger">
-        <div class="lf-name">② 南風ペナルティ</div>
-        <div class="lf-desc">風向135〜225°（SE〜SW）かつ<br>風速≥8m/s → スコア −1<br>室戸沖は南風で波が成長しやすい</div>
-      </div>
-      <div class="lf lf-danger">
-        <div class="lf-name">③ 逆波ペナルティ</div>
-        <div class="lf-desc">風向と波向きの差が120°以上 → −1<br>差90〜120°（交差波）→ −0.5<br>三角波・急峻波のリスク評価</div>
-      </div>
-      <div class="lf lf-warn">
-        <div class="lf-name">④ グレーゾーン複合補正</div>
-        <div class="lf-desc">1.0〜1.5m かつ②＆③が同時発生<br>→ さらに −1（強制 × 判定）<br>小波でも危険な条件を正確に評価</div>
-      </div>
-      <div class="lf">
-        <div class="lf-name">⑤ 風速トレンド補正</div>
-        <div class="lf-desc">前スロット比 +0.5m/s↑ → −1<br>前スロット比 −0.5m/s↓ → +1<br>海況の変化方向を反映</div>
-      </div>
-      <div class="lf lf-good">
-        <div class="lf-name">予約システム連携</div>
-        <div class="lf-desc">◎○ → ✅ 出船可能<br>△ → ⚠ 未定・要確認<br>× → ❌ 出船中止</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- サマリーカード -->
-  <div class="summary" id="summary" style="display:none">
-    <div class="sc"><div class="sc-lbl">最良コンディション</div><div class="sc-val" id="s0">—</div><div class="sc-sub" id="s0t">—</div></div>
-    <div class="sc"><div class="sc-lbl">平均波高</div><div class="sc-val" id="s1">—</div><div class="sc-sub" id="s1t">—</div></div>
-    <div class="sc"><div class="sc-lbl">出船可能枠</div><div class="sc-val" id="s2">—</div><div class="sc-sub" id="s2t">—</div></div>
-    <div class="sc"><div class="sc-lbl">最大風速</div><div class="sc-val" id="s3">—</div><div class="sc-sub" id="s3t">—</div></div>
-  </div>
-
   <div class="err" id="err"></div>
   <div class="prog" id="prog">⟳ データ取得・判定処理中...</div>
 
@@ -188,6 +149,41 @@ td{padding:9px 12px;color:#1a1a2e;vertical-align:middle}
     ※ 逆波判定は「風向 vs 波向き」の方向差から算出。波向きデータが取得できない場合は本補正は省略されます。<br>
     ※ 予約システム送信ステータス欄は参考値です。最終判断は船長が行ってください。
   </div>
+
+  <!-- 判定ロジック説明（参照用：通常非表示） -->
+  <details style="margin-top:16px">
+    <summary style="font-size:12px;color:#888;cursor:pointer;padding:8px 12px;background:#f5f7fa;border:1px solid #e0e4ea;border-radius:8px;list-style:none;display:flex;align-items:center;gap:6px">
+      🔍 v3 判定ロジック（5ファクター）— タップで展開
+    </summary>
+    <div class="logic-panel" style="margin-top:8px;border-radius:12px">
+      <div class="logic-grid">
+        <div class="lf">
+          <div class="lf-name">① 波高ベーススコア</div>
+          <div class="lf-desc">≤1.0m:◎ / ≤1.5m:○ / ≤2.0m:△ / >2.0m:×<br>グレーゾーン 1.0〜1.5m で補正が効く</div>
+        </div>
+        <div class="lf lf-danger">
+          <div class="lf-name">② 南風ペナルティ</div>
+          <div class="lf-desc">風向135〜225°（SE〜SW）かつ<br>風速≥8m/s → スコア −1<br>室戸沖は南風で波が成長しやすい</div>
+        </div>
+        <div class="lf lf-danger">
+          <div class="lf-name">③ 逆波ペナルティ</div>
+          <div class="lf-desc">風向と波向きの差が120°以上 → −1<br>差90〜120°（交差波）→ −0.5<br>三角波・急峻波のリスク評価</div>
+        </div>
+        <div class="lf lf-warn">
+          <div class="lf-name">④ グレーゾーン複合補正</div>
+          <div class="lf-desc">1.0〜1.5m かつ②＆③が同時発生<br>→ さらに −1（強制 × 判定）<br>小波でも危険な条件を正確に評価</div>
+        </div>
+        <div class="lf">
+          <div class="lf-name">⑤ 風速トレンド補正</div>
+          <div class="lf-desc">前スロット比 +0.5m/s↑ → −1<br>前スロット比 −0.5m/s↓ → +1<br>海況の変化方向を反映</div>
+        </div>
+        <div class="lf lf-good">
+          <div class="lf-name">予約システム連携</div>
+          <div class="lf-desc">◎○ → ✅ 出船可能<br>△ → ⚠ 未定・要確認<br>× → ❌ 出船中止</div>
+        </div>
+      </div>
+    </div>
+  </details>
 </div>
 
 <script>
@@ -418,32 +414,30 @@ function buildRows(raw) {
 //  レンダリング
 // ============================================================
 function renderAll() {
-  renderSummary();
   renderTable();
 }
 
-function renderSummary() {
-  const el = document.getElementById('summary');
-  el.style.display = 'grid';
-  const waves = rows.map(r => r.wave), winds = rows.map(r => r.wind);
-  const ok    = rows.filter(r => r.sc >= 2).length;
-  const avg   = waves.reduce((a, b) => a + b, 0) / waves.length;
-  const best  = rows.reduce((a, b) => b.sc > a.sc ? b : a, rows[0]);
-  const mxW   = Math.max(...winds);
-  const mxRow = rows.find(r => r.wind === mxW);
-
-  document.getElementById('s0').textContent = JD[best.sc].l;
-  document.getElementById('s0t').textContent = best.t.replace('T', ' ');
-  document.getElementById('s1').textContent = avg.toFixed(2) + 'm';
-  document.getElementById('s1t').textContent = '最大 ' + Math.max(...waves).toFixed(2) + 'm';
-  document.getElementById('s2').textContent = ok + '枠';
-  document.getElementById('s2t').textContent = '全' + rows.length + '枠中';
-  document.getElementById('s3').textContent = mxW.toFixed(1) + 'm/s';
-  document.getElementById('s3t').textContent = mxRow ? mxRow.t.replace('T', ' ') : '';
+// 日別総合スコアを計算（その日のスロットの平均を四捨五入）
+function calcDayScores() {
+  const map = {};
+  rows.forEach(r => {
+    const dt = r.t.slice(0, 10);
+    if (!map[dt]) map[dt] = [];
+    map[dt].push(r.sc);
+  });
+  const result = {};
+  Object.keys(map).forEach(dt => {
+    const scores = map[dt];
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    result[dt] = Math.max(0, Math.min(3, Math.round(avg)));
+  });
+  return result;
 }
 
 function renderTable() {
   const WC = ['#e06b6b','#d4aa00','#4a80d0','#4a9f4a'];
+  const dayScores = calcDayScores();
+
   let h = `<div class="tbl-head"><h2>🌊 海況予報 / 出船判定</h2></div>
     <table><thead><tr>
       <th>日時</th>
@@ -459,9 +453,14 @@ function renderTable() {
   rows.forEach((r, i) => {
     const dt = r.t.slice(0, 10), tm = r.t.slice(11, 16);
     if (dt !== ld) {
-      const d  = new Date(r.t + (r.t.length === 16 ? ':00' : ''));
-      const ds = d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' });
-      h += `<tr class="dsep"><td colspan="7">${ds}</td></tr>`;
+      const d   = new Date(r.t + (r.t.length === 16 ? ':00' : ''));
+      const ds  = d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' });
+      const dsc = dayScores[dt];
+      const dj  = JD[dsc];
+      h += `<tr class="dsep"><td colspan="7" style="display:flex;align-items:center;justify-content:space-between">
+        <span>${ds}</span>
+        <span class="badge ${dj.c}" style="font-size:11px;margin-right:4px">総合: ${dj.l}</span>
+      </td></tr>`;
       ld = dt;
     }
 
