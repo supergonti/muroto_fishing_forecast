@@ -59,25 +59,24 @@ body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;b
 .tbl-wrap{background:#fff;border:1px solid #e0e4ea;border-radius:12px;overflow:hidden;margin-bottom:16px}
 .tbl-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e0e4ea;background:#fafbfc}
 .tbl-head h2{font-size:13px;font-weight:600;color:#444}
-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
-thead th{padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:#888;background:#fafbfc;border-bottom:1px solid #e0e4ea}
+/* 横スクロールコンテナ */
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{min-width:520px;border-collapse:collapse;font-size:12px}
+thead th{padding:7px 8px;text-align:left;font-weight:600;font-size:11px;color:#888;background:#fafbfc;border-bottom:1px solid #e0e4ea;white-space:nowrap}
 tbody tr{border-bottom:1px solid #f0f2f5;transition:background .1s}
 tbody tr:hover{background:#f8f9fb}
 tbody tr:last-child{border-bottom:none}
 tr.dsep td{font-size:11px;font-weight:600;color:#666;background:#f5f7fa;padding:6px 12px;border-bottom:1px solid #e0e4ea}
-td{padding:8px 10px;color:#1a1a2e;vertical-align:middle}
-.td-time{font-family:monospace;font-size:13px;font-weight:700;color:#1a1a2e;white-space:nowrap}
-.td-judge-inline{margin-top:3px}
-/* モバイル非表示列 */
+td{padding:7px 8px;color:#1a1a2e;vertical-align:middle}
+.td-time{font-family:monospace;font-size:14px;font-weight:700;color:#1a1a2e;white-space:nowrap}
 @media(max-width:640px){
-  .hide-mob{display:none!important}
-  td{padding:7px 6px;font-size:11px}
-  thead th{padding:7px 6px;font-size:10px}
-  .wval{font-size:12px}
-  .badge{font-size:10px;padding:2px 6px}
-  .notif-badge{font-size:10px;padding:2px 5px}
-  .ptag{font-size:9px}
+  td{padding:5px 5px;font-size:10px}
+  thead th{padding:5px 5px;font-size:9px}
+  .wval{font-size:11px}
+  .badge{font-size:9px;padding:2px 5px}
+  .ptag{font-size:8px}
   .hd-coord{display:none}
+  table{min-width:480px}
 }
 
 /* 波高バー */
@@ -158,9 +157,10 @@ td{padding:8px 10px;color:#1a1a2e;vertical-align:middle}
 
   <!-- 注記 -->
   <div class="note" id="foot" style="display:none">
-    ※ 波高は風波＋うねりの合成値（Open-Meteo Marine API）。うねりが卓越する場合は実際の体感と差が出る可能性があります。<br>
-    ※ 逆波判定は「風向 vs 波向き」の方向差から算出。波向きデータが取得できない場合は本補正は省略されます。<br>
-    ※ 予約システム送信ステータス欄は参考値です。最終判断は船長が行ってください。
+    ※ <strong>波高</strong>は風波＋うねりの合成値（Open-Meteo Marine API）。うねりが卓越する場合は実際の体感と差が出る可能性があります。<br>
+    ※ <strong>風波</strong>は風によって直接生成される波成分（wind_wave_height）。合成波高より小さい値になります。<br>
+    ※ <strong>逆波</strong>判定は「風向 vs 波向き」の方向差から算出。波向きデータが取得できない場合は本補正は省略されます。<br>
+    ※ <strong>総合判定</strong>スコアは 0〜3 の4段階。顧客への送信は各日の 6:00 と 12:00 のスコア平均（日次総合）を使用します。最終出船判断は船長が行ってください。
   </div>
 
   <!-- 判定ロジック説明（参照用：通常非表示） -->
@@ -346,7 +346,7 @@ async function run() {
       const MARINE_URL =
         `https://marine-api.open-meteo.com/v1/marine` +
         `?latitude=${LAT}&longitude=${LON}` +
-        `&hourly=wave_height,wave_direction` +
+        `&hourly=wave_height,wave_direction,wind_wave_height` +
         `&timezone=Asia%2FTokyo&forecast_days=5`;
 
       const WEATHER_URL =
@@ -379,12 +379,15 @@ async function run() {
         if (wave == null || wind == null) return;
         rawRows.push({
           t,
-          wave:    Math.round(wave * 100) / 100,
-          wind:    Math.round(wind * 10)  / 10,
-          dir:     Math.round(weather.hourly.wind_direction_10m[wi] || 0),
-          waveDir: marine.hourly.wave_direction[i] != null
-                     ? Math.round(marine.hourly.wave_direction[i]) : null,
-          rain:    Math.round((weather.hourly.precipitation[wi] || 0) * 10) / 10,
+          wave:      Math.round(wave * 100) / 100,
+          wind:      Math.round(wind * 10)  / 10,
+          dir:       Math.round(weather.hourly.wind_direction_10m[wi] || 0),
+          waveDir:   marine.hourly.wave_direction[i] != null
+                       ? Math.round(marine.hourly.wave_direction[i]) : null,
+          windWave:  marine.hourly.wind_wave_height != null &&
+                     marine.hourly.wind_wave_height[i] != null
+                       ? Math.round(marine.hourly.wind_wave_height[i] * 100) / 100 : null,
+          rain:      Math.round((weather.hourly.precipitation[wi] || 0) * 10) / 10,
         });
       });
 
@@ -426,13 +429,14 @@ function buildRows(raw) {
   rows = [];
   let pw = null;
   raw.forEach(r => {
-    const waveDir = (r.waveDir != null && !isNaN(r.waveDir)) ? Number(r.waveDir) : null;
+    const waveDir  = (r.waveDir  != null && !isNaN(r.waveDir))  ? Number(r.waveDir)  : null;
+    const windWave = (r.windWave != null && !isNaN(r.windWave)) ? Number(r.windWave) : null;
     const { score, tags } = calcScore(
       Number(r.wave), Number(r.wind), pw,
       Number(r.dir), waveDir
     );
     pw = Number(r.wind);
-    rows.push({ ...r, waveDir, sc: score, tags });
+    rows.push({ ...r, waveDir, windWave, sc: score, tags });
   });
 }
 
@@ -472,17 +476,19 @@ function calcDayScores() {
 
 function renderTable() {
   const WC = ['#e06b6b','#d4aa00','#4a80d0','#4a9f4a'];
+  const SYM = ['×','△','○','◎'];
   const dayScores = calcDayScores();
 
-  // 列: 時刻+判定 / 波高 / 風速・風向 / 波向き(hide-mob) / 降水量(hide-mob) / 送信
+  // 列順: 時刻 / 波高 / 風波 / 波向き / 風速・風向 / 降水量 / 総合
   let h = `<div class="tbl-head"><h2>🌊 海況予報 / 出船判定</h2></div>
-    <table><thead><tr>
-      <th style="width:18%">時刻</th>
-      <th style="width:20%">波高</th>
-      <th style="width:32%">風速・風向</th>
-      <th class="hide-mob" style="width:12%">波向き</th>
-      <th class="hide-mob" style="width:8%">雨</th>
-      <th style="width:10%">送信</th>
+    <div class="tbl-scroll"><table><thead><tr>
+      <th style="min-width:58px">時刻</th>
+      <th style="min-width:88px">波高</th>
+      <th style="min-width:62px">風波</th>
+      <th style="min-width:72px">波向き</th>
+      <th style="min-width:118px">風速・風向</th>
+      <th style="min-width:62px">降水量</th>
+      <th style="min-width:70px;text-align:center">総合</th>
     </tr></thead><tbody>`;
 
   let ld = '';
@@ -490,34 +496,42 @@ function renderTable() {
     const dt = r.t.slice(0, 10);
     const tm = r.t.slice(11, 16);
 
-    // 日付区切り行（総合判定付き）
+    // 日付区切り行（日次総合判定付き）
     if (dt !== ld) {
       const d   = new Date(r.t + ':00');
       const ds  = d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' });
       const dsc = dayScores[dt] != null ? dayScores[dt] : 0;
       const dj  = JD[dsc];
       h += `<tr class="dsep">
-        <td colspan="6">
+        <td colspan="7">
           <span>${ds}</span>
-          <span class="badge ${dj.c}" style="font-size:10px;margin-left:8px;vertical-align:middle">総合 ${dj.l}</span>
+          <span class="badge ${dj.c}" style="font-size:10px;margin-left:8px;vertical-align:middle">
+            総合 ${dj.l} <span style="font-size:11px;font-weight:900">${dsc}</span>
+          </span>
+          <span style="font-size:10px;color:#888;margin-left:6px">（6時・12時平均）</span>
         </td>
       </tr>`;
       ld = dt;
     }
 
     const j  = JD[r.sc];
-    const ww = Math.min(100, (r.wave / 2.0) * 100);
     const wc = WC[r.sc];
+    const ww = Math.min(100, (r.wave / 2.0) * 100);
+
+    // 風波カラー（波高と同じ閾値で色分け）
+    const wwScore = r.windWave == null ? null
+      : r.windWave <= 0.8 ? 3 : r.windWave <= 1.2 ? 2 : r.windWave <= 1.6 ? 1 : 0;
+    const wwHtml = r.windWave != null
+      ? `<span style="color:${WC[wwScore]};font-weight:700">${Number(r.windWave).toFixed(2)}m</span>`
+      : '<span style="color:#bbb">—</span>';
 
     // 風速トレンド矢印
     let tr = '';
     if (i > 0) {
       const df = r.wind - rows[i - 1].wind;
-      tr = df > 0.5
-        ? '<span style="color:#c0392b;font-size:10px">↑</span>'
-        : df < -0.5
-          ? '<span style="color:#27ae60;font-size:10px">↓</span>'
-          : '';
+      tr = df > 0.5  ? '<span style="color:#c0392b;font-size:10px">↑</span>'
+         : df < -0.5 ? '<span style="color:#27ae60;font-size:10px">↓</span>'
+         : '';
     }
 
     // ペナルティタグ
@@ -533,9 +547,6 @@ function renderTable() {
     h += `<tr>
       <td>
         <div class="td-time">${tm}</div>
-        <div class="td-judge-inline">
-          <span class="badge ${j.c}" style="font-size:10px;padding:2px 6px">${j.l}</span>
-        </div>
       </td>
       <td>
         <div class="wrow">
@@ -543,29 +554,31 @@ function renderTable() {
           <span class="wval" style="color:${wc}">${Number(r.wave).toFixed(2)}m</span>
         </div>
       </td>
+      <td style="font-size:11px;text-align:center">${wwHtml}</td>
+      <td style="font-size:11px;color:#555">${wdHtml}</td>
       <td style="font-size:11px">
         ${d2a(r.dir)}<strong>${Number(r.wind).toFixed(1)}</strong>m/s${tr}
         <span style="font-size:10px;color:#888">${d2d(r.dir)}</span>
         ${tagHtml}
       </td>
-      <td class="hide-mob" style="font-size:11px;color:#555">${wdHtml}</td>
-      <td class="hide-mob" style="font-size:11px;color:#666">${Number(r.rain).toFixed(1)}mm</td>
-      <td>
-        <span class="notif-badge ${j.nc}">${j.notif}</span>
+      <td style="font-size:11px;color:#666">${Number(r.rain).toFixed(1)}mm</td>
+      <td style="text-align:center;padding:6px 4px">
+        <div style="font-size:16px;font-weight:900;color:${wc};line-height:1.1">${SYM[r.sc]}</div>
+        <div style="font-size:13px;font-weight:700;color:${wc};background:${wc}22;border-radius:4px;padding:0 4px;display:inline-block;min-width:20px">${r.sc}</div>
       </td>
     </tr>`;
   });
 
-  h += `</tbody></table>
+  h += `</tbody></table></div>
     <div class="legend">
-      <span class="leg"><span class="leg-dot" style="background:#4a9f4a"></span>◎ ≤0.8m</span>
-      <span class="leg"><span class="leg-dot" style="background:#4a80d0"></span>○ ≤1.2m</span>
-      <span class="leg"><span class="leg-dot" style="background:#d4aa00"></span>△ ≤1.6m</span>
-      <span class="leg"><span class="leg-dot" style="background:#e06b6b"></span>× >1.6m</span>
+      <span class="leg"><span class="leg-dot" style="background:#4a9f4a"></span>◎ 3 ≤0.8m</span>
+      <span class="leg"><span class="leg-dot" style="background:#4a80d0"></span>○ 2 ≤1.2m</span>
+      <span class="leg"><span class="leg-dot" style="background:#d4aa00"></span>△ 1 ≤1.6m</span>
+      <span class="leg"><span class="leg-dot" style="background:#e06b6b"></span>× 0 >1.6m</span>
       <span style="font-size:10px;color:#aaa;margin-left:4px">|</span>
-      <span class="leg"><span class="ptag pt-south" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #e09050;background:#fff0e0;color:#a04000">南風↑</span></span>
-      <span class="leg"><span class="ptag pt-oppose" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #a060e0;background:#f0e8ff;color:#5020a0">逆波</span></span>
-      <span class="leg"><span class="ptag pt-compound" style="font-size:9px;padding:1px 4px;border-radius:2px;border:1px solid #e04060;background:#ffe8e8;color:#a00020">複合</span></span>
+      <span class="leg"><span class="ptag pt-south">南風↑</span></span>
+      <span class="leg"><span class="ptag pt-oppose">逆波</span></span>
+      <span class="leg"><span class="ptag pt-compound">複合悪化</span></span>
     </div>`;
   document.getElementById('tw').innerHTML = h;
 }
