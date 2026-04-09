@@ -136,28 +136,28 @@ td{padding:7px 8px;color:#1a1a2e;vertical-align:middle}
     <div class="logic-panel" style="margin-top:8px">
       <div class="logic-grid">
         <div class="lf">
-          <div class="lf-name">① 波高ベーススコア</div>
-          <div class="lf-desc">≤0.8m→3（◎）/ >0.8〜≤1.2m→2（○）<br>>1.2〜≤1.6m→1（△）/ >1.6m→0（×）</div>
+          <div class="lf-name">① 波高ベース値</div>
+          <div class="lf-desc">波高メートル値をそのまま使用<br>最終値で判定: ≤0.8m→◎ / ≤1.2m→○<br>≤1.6m→△ / >1.6m→×</div>
         </div>
         <div class="lf lf-danger">
-          <div class="lf-name">② 風向ペナルティ</div>
-          <div class="lf-desc">南系135〜225°かつ>6m/s→−0.5<br>東西系→−0.25 / 北系315〜45°→±0</div>
+          <div class="lf-name">② 風向補正</div>
+          <div class="lf-desc">南系135〜225°かつ>6m/s→+0.5<br>東西系→+0.25 / 北系315〜45°→±0</div>
         </div>
         <div class="lf lf-danger">
-          <div class="lf-name">③ 逆波ペナルティ</div>
-          <div class="lf-desc">差≥120°→−0.2 / 差90〜120°→−0.1<br>差&lt;90°→±0</div>
+          <div class="lf-name">③ 逆波補正</div>
+          <div class="lf-desc">差≥120°→+0.2 / 差90〜120°→+0.1<br>差&lt;90°→±0</div>
         </div>
         <div class="lf lf-warn">
           <div class="lf-name">④ グレーゾーン複合補正</div>
-          <div class="lf-desc">波高>0.8m かつ②南風AND③逆波同時→−0.2</div>
+          <div class="lf-desc">波高>0.8m かつ②南風AND③逆波同時→+0.2</div>
         </div>
         <div class="lf">
           <div class="lf-name">⑤ 風速トレンド補正</div>
-          <div class="lf-desc">前比+0.5m/s↑→−0.2<br>前比−0.5m/s↓→+0.2</div>
+          <div class="lf-desc">前比+0.5m/s↑→+0.2<br>前比−0.5m/s↓→−0.2</div>
         </div>
         <div class="lf lf-good">
           <div class="lf-name">⑥ 風波補正</div>
-          <div class="lf-desc">≤0.3m→+0.3（風波小）<br>≥0.7m→−0.3（風波大）/ その他→±0</div>
+          <div class="lf-desc">≤0.3m→−0.3（風波小）<br>≥0.7m→+0.3（風波大）/ その他→±0</div>
         </div>
       </div>
     </div>
@@ -188,35 +188,35 @@ function angleDiff(a,b){const d=Math.abs((a-b+360)%360);return d>180?360-d:d}
 
 function calcScore(wave,windNow,windPrev,windDir,waveDir,windWave){
   const tags=[];
-  let s=wave<=0.8?3:wave<=1.2?2:wave<=1.6?1:0;
+  let s=wave;  // 波高メートル値をベースに使用（低いほど良い）
 
   const inSouth=windDir>=135&&windDir<=225,inNorth=windDir>=315||windDir<=45;
   let southPenalty=false;
-  if(inSouth&&windNow>6){s-=0.5;southPenalty=true;tags.push({cls:'pt-south',lbl:'南風↑'})}
+  if(inSouth&&windNow>6){s+=0.5;southPenalty=true;tags.push({cls:'pt-south',lbl:'南風↑'})}
   else if(inNorth){tags.push({cls:'pt-north',lbl:'北風◎'})}
-  else{s-=0.25;tags.push({cls:'pt-ew',lbl:'東西風'})}
+  else{s+=0.25;tags.push({cls:'pt-ew',lbl:'東西風'})}
 
   let opposePenalty=false;
   if(waveDir!=null){
     const diff=angleDiff(windDir,waveDir);
-    if(diff>=120){s-=0.2;opposePenalty=true;tags.push({cls:'pt-oppose',lbl:'逆波'})}
-    else if(diff>=90){s-=0.1;opposePenalty=true;tags.push({cls:'pt-cross',lbl:'交差波'})}
+    if(diff>=120){s+=0.2;opposePenalty=true;tags.push({cls:'pt-oppose',lbl:'逆波'})}
+    else if(diff>=90){s+=0.1;opposePenalty=true;tags.push({cls:'pt-cross',lbl:'交差波'})}
   }
 
-  if(wave>0.8&&southPenalty&&opposePenalty){s-=0.2;tags.push({cls:'pt-compound',lbl:'複合悪化'})}
+  if(wave>0.8&&southPenalty&&opposePenalty){s+=0.2;tags.push({cls:'pt-compound',lbl:'複合悪化'})}
 
   if(windPrev!=null){
-    if(windNow>windPrev+0.5){s-=0.2;tags.push({cls:'pt-trend-up',lbl:'風↑'})}
-    else if(windNow<windPrev-0.5){s+=0.2;tags.push({cls:'pt-trend-dn',lbl:'風↓'})}
+    if(windNow>windPrev+0.5){s+=0.2;tags.push({cls:'pt-trend-up',lbl:'風↑'})}
+    else if(windNow<windPrev-0.5){s-=0.2;tags.push({cls:'pt-trend-dn',lbl:'風↓'})}
   }
 
   if(windWave!=null){
-    if(windWave<=0.3){s+=0.3;tags.push({cls:'pt-ww-good',lbl:'風波小'})}
-    else if(windWave>=0.7){s-=0.3;tags.push({cls:'pt-ww-bad',lbl:'風波大'})}
+    if(windWave<=0.3){s-=0.3;tags.push({cls:'pt-ww-good',lbl:'風波小'})}
+    else if(windWave>=0.7){s+=0.3;tags.push({cls:'pt-ww-bad',lbl:'風波大'})}
   }
 
-  const s1=Math.max(0,Math.min(3,Math.round(s*10)/10));
-  return{score:Math.max(0,Math.min(3,Math.round(s1))),rawScore:s1,tags};
+  const rawScore=Math.max(0,Math.round(s*10)/10);
+  return{score:rawScore<=0.8?3:rawScore<=1.2?2:rawScore<=1.6?1:0,rawScore,tags};
 }
 
 async function run(){
@@ -294,8 +294,8 @@ function calcDayScores(){
   const result={};
   Object.keys(map).forEach(dt=>{
     const avg=map[dt].reduce((a,b)=>a+b,0)/map[dt].length;
-    const raw=Math.max(0,Math.min(3,Math.round(avg*10)/10));
-    result[dt]={sc:Math.max(0,Math.min(3,Math.round(raw))),raw};
+    const raw=Math.max(0,Math.round(avg*10)/10);
+    result[dt]={sc:raw<=0.8?3:raw<=1.2?2:raw<=1.6?1:0,raw};
   });
   return result;
 }
