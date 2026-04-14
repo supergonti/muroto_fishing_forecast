@@ -137,27 +137,27 @@ td{padding:7px 8px;color:#1a1a2e;vertical-align:middle}
       <div class="logic-grid">
         <div class="lf">
           <div class="lf-name">① 波高ベース値</div>
-          <div class="lf-desc">波高メートル値をそのまま使用<br>最終値で判定: ≤0.8m→◎ / ≤1.2m→○<br>≤1.6m→△ / >1.6m→×</div>
+          <div class="lf-desc" id="lf-f1">—</div>
         </div>
         <div class="lf lf-danger">
           <div class="lf-name">② 風向補正</div>
-          <div class="lf-desc">風速≤8m/s→補正なし（全風向共通）<br>風速>8m/s時: 南系135〜225°→+0.4<br>東西系→+0.2 / 北系315〜45°→±0</div>
+          <div class="lf-desc" id="lf-f2">—</div>
         </div>
         <div class="lf lf-danger">
           <div class="lf-name">③ 逆波補正</div>
-          <div class="lf-desc">差≥120°→+0.2（逆波）<br>差90〜120°→+0.1（交差波）<br>差&lt;90°→±0</div>
+          <div class="lf-desc" id="lf-f3">—</div>
         </div>
         <div class="lf lf-warn">
           <div class="lf-name">④ 複合悪化補正</div>
-          <div class="lf-desc">波高>0.8m かつ②南風 かつ③逆波（のみ）→+0.1<br>※交差波では発動しない</div>
+          <div class="lf-desc" id="lf-f4">—</div>
         </div>
         <div class="lf">
           <div class="lf-name">⑤ 風速トレンド補正</div>
-          <div class="lf-desc">前比+2.0m/s↑→+0.2<br>前比−2.0m/s↓→−0.2</div>
+          <div class="lf-desc" id="lf-f5">—</div>
         </div>
         <div class="lf lf-good">
           <div class="lf-name">⑥ 風波補正</div>
-          <div class="lf-desc">≤0.3m→−0.3（風波小）<br>≥0.7m→+0.3（風波大）/ その他→±0</div>
+          <div class="lf-desc" id="lf-f6">—</div>
         </div>
       </div>
     </div>
@@ -251,7 +251,38 @@ async function loadCriteria(){
     if(f6.bad_penalty!=null)          C.ww_bad_penalty=f6.bad_penalty;
     const upd=j._updated||'';
     if(upd) setSt('判定基準: criteria.json ('+upd+') を読み込みました');
+    updateLogicPanel();
   }catch(_){}
+}
+
+function updateLogicPanel(){
+  const f1=document.getElementById('lf-f1');
+  const f2=document.getElementById('lf-f2');
+  const f3=document.getElementById('lf-f3');
+  const f4=document.getElementById('lf-f4');
+  const f5=document.getElementById('lf-f5');
+  const f6=document.getElementById('lf-f6');
+  if(f1) f1.innerHTML=
+    `波高メートル値をそのまま使用<br>`+
+    `最終値で判定: ≤${C.excellent_max}m→◎ / ≤${C.good_max}m→○<br>`+
+    `≤${C.caution_max}m→△ / >${C.caution_max}m→×`;
+  if(f2) f2.innerHTML=
+    `風速≤${C.wind_speed_threshold}m/s→補正なし（全風向共通）<br>`+
+    `風速>${C.wind_speed_threshold}m/s時: 南系${C.south_range_min}〜${C.south_range_max}°→+${C.south_penalty}<br>`+
+    `東西系→+${C.ew_penalty} / 北系${C.north_range_min}〜${C.north_range_max}°→±0`;
+  if(f3) f3.innerHTML=
+    `差≥${C.reverse_angle_min}°→+${C.reverse_penalty}（逆波）<br>`+
+    `差${C.cross_angle_min}〜${C.reverse_angle_min}°→+${C.cross_penalty}（交差波）<br>`+
+    `差&lt;${C.cross_angle_min}°→±0`;
+  if(f4) f4.innerHTML=
+    `波高>${C.wave_height_threshold}m かつ②南風 かつ③逆波${C.compound_include_cross?'/交差波':'（のみ）'}→+${C.compound_penalty}<br>`+
+    `${C.compound_include_cross?'':'※交差波では発動しない'}`;
+  if(f5) f5.innerHTML=
+    `前比+${C.trend_change_threshold}m/s↑→+${C.trend_up_penalty}<br>`+
+    `前比−${C.trend_change_threshold}m/s↓→−${C.trend_down_bonus}`;
+  if(f6) f6.innerHTML=
+    `≤${C.ww_good_max}m→−${C.ww_good_bonus}（風波小）<br>`+
+    `≥${C.ww_bad_min}m→+${C.ww_bad_penalty}（風波大）/ その他→±0`;
 }
 
 const $=id=>document.getElementById(id);
@@ -314,6 +345,7 @@ async function run(){
   const btn=$('run-btn');
   btn.disabled=true;hideErr();$('prog').style.display='block';setSt('判定基準を読み込み中...');
   await loadCriteria();
+  updateLogicPanel();
   setSt('データ読み込み中...');
   try{
     let rawRows=[],updatedAt=null;
