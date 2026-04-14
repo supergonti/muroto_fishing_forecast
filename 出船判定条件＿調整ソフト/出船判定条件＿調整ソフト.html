@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>出船判定条件 調整ソフト — 室戸沖 出船判断システム</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;background:#f0f2f6;color:#1a1a2e;min-height:100vh}
+
+/* ヘッダー */
+.hd{background:#1a1a2e;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+.hd-title{font-size:17px;font-weight:700}
+.hd-sub{font-size:11px;color:#aab;margin-top:2px}
+.hd-actions{margin-left:auto;display:flex;gap:10px}
+
+/* ボタン */
+.btn{font-size:13px;font-weight:600;padding:9px 18px;border-radius:8px;border:none;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-primary{background:#0066cc;color:#fff}
+.btn-primary:hover{background:#0055aa}
+.btn-reset{background:#fff2;color:#dde;border:1px solid #fff3}
+.btn-reset:hover{background:#fff3}
+
+/* レイアウト */
+.wrap{max-width:900px;margin:0 auto;padding:24px 16px 80px}
+.info-bar{background:#fff;border:1px solid #e0e4ea;border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:12px;color:#555;flex-wrap:wrap}
+.info-bar strong{color:#1a1a2e}
+
+/* セクション */
+.section{background:#fff;border:1px solid #e0e4ea;border-radius:12px;margin-bottom:16px;overflow:hidden}
+.sec-head{padding:12px 16px;border-bottom:1px solid #e0e4ea;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;background:#fafbfc}
+.sec-head:hover{background:#f5f7fa}
+.sec-icon{font-size:18px;line-height:1}
+.sec-title{font-size:14px;font-weight:700}
+.sec-desc{font-size:11px;color:#888;margin-top:2px}
+.sec-badge{margin-left:auto;font-size:10px;padding:3px 8px;border-radius:12px;font-weight:600;border:1px solid;white-space:nowrap}
+.badge-red{background:#fff0f0;color:#c0392b;border-color:#e06b6b}
+.badge-grn{background:#e8f8e8;color:#1a6b1a;border-color:#6bbf6b}
+.badge-ylw{background:#fff8e0;color:#7a5800;border-color:#d4aa00}
+.badge-blue{background:#e8f0fc;color:#1a3d8c;border-color:#6b9be0}
+.badge-prp{background:#f0e8ff;color:#5020a0;border-color:#a060e0}
+.badge-gry{background:#f0f2f5;color:#444;border-color:#c0c4cc}
+
+/* フォームグリッド */
+.sec-body{padding:16px}
+.fields-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.fields-grid{grid-template-columns:1fr}}
+.field-group{display:flex;flex-direction:column;gap:4px}
+.field-label{font-size:11px;font-weight:600;color:#555;display:flex;align-items:center;gap:6px}
+.field-desc{font-size:10px;color:#999;line-height:1.4}
+.field-input{border:1.5px solid #dde0e8;border-radius:7px;padding:8px 10px;font-size:14px;font-weight:700;color:#1a1a2e;background:#fafbfc;transition:border-color .2s;width:100%}
+.field-input:focus{outline:none;border-color:#0066cc;background:#fff}
+.field-input.changed{border-color:#e67e22;background:#fff8f0}
+.field-unit{font-size:11px;color:#888;margin-top:2px}
+
+/* 変更バッジ */
+.new-badge{font-size:9px;background:#c0392b;color:#fff;padding:1px 5px;border-radius:4px;font-weight:700;vertical-align:middle}
+.changed-badge{font-size:9px;background:#e67e22;color:#fff;padding:1px 5px;border-radius:4px;font-weight:700;vertical-align:middle}
+
+/* 旧値表示 */
+.old-val{font-size:10px;color:#999;margin-top:1px}
+.old-val s{color:#c0392b}
+
+/* サブヘッダー（グループ分け用） */
+.sub-header{font-size:11px;font-weight:700;color:#1a3d8c;background:#eef4ff;border:1px solid #c0d4f0;border-radius:6px;padding:5px 10px;margin-bottom:8px;grid-column:1/-1}
+.sub-header-orange{color:#7a3800;background:#fff3e8;border-color:#f0c090}
+
+/* 閾値セクション専用 */
+.threshold-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:4px}
+.th-card{border-radius:8px;padding:10px 12px;text-align:center;border:2px solid}
+.th-j3{background:#e8f8e8;border-color:#6bbf6b}
+.th-j2{background:#e8f0fc;border-color:#6b9be0}
+.th-j1{background:#fff8e0;border-color:#d4aa00}
+.th-sym{font-size:20px;font-weight:900;margin-bottom:4px}
+.th-name{font-size:10px;color:#666;margin-bottom:6px}
+
+/* 変更プレビュー */
+.preview-bar{background:#1a1a2e;color:#fff;padding:10px 16px;font-size:12px;font-family:monospace;border-radius:8px;margin-top:12px;line-height:1.8}
+.preview-bar span{color:#6be}
+
+/* 条件オプション（チェックボックス系） */
+.toggle-row{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8f0ff;border:1px solid #d0b0f0;border-radius:8px;cursor:pointer;grid-column:1/-1}
+.toggle-row:hover{background:#f0e8ff}
+.toggle-row input[type=checkbox]{width:16px;height:16px;accent-color:#7030d0;cursor:pointer}
+.toggle-row label{font-size:12px;font-weight:600;color:#4a1a8c;cursor:pointer}
+.toggle-row .toggle-desc{font-size:10px;color:#7a5a9c;margin-top:2px}
+
+/* 仕組み説明 */
+.how-to{background:#eef4ff;border:1px solid #b0ccf0;border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:12px;line-height:1.8;color:#2a4a80}
+.how-to h3{font-size:13px;font-weight:700;margin-bottom:6px;color:#1a3d8c}
+.how-to ol{padding-left:18px}
+.how-to li{margin-bottom:4px}
+
+/* 変更サマリーバナー */
+.change-banner{background:#fff8e0;border:1px solid #d4aa00;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#5a4000}
+.change-banner h4{font-size:12px;font-weight:700;color:#7a5800;margin-bottom:6px}
+.change-banner ul{padding-left:16px;line-height:1.9}
+.change-banner li span.tag-new{color:#c0392b;font-weight:700}
+.change-banner li span.tag-chg{color:#e67e22;font-weight:700}
+
+/* 通知 */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 22px;border-radius:10px;font-size:13px;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <span style="font-size:24px">⚙️</span>
+  <div>
+    <div class="hd-title">出船判定条件 調整ソフト <span style="font-size:11px;background:#e67e22;padding:2px 7px;border-radius:5px;font-weight:600">v2.0</span></div>
+    <div class="hd-sub">室戸沖 出船判断システム — 判定基準（criteria.json）の編集・出力ツール</div>
+  </div>
+  <div class="hd-actions">
+    <button class="btn btn-reset" onclick="resetAll()">↩ デフォルトに戻す</button>
+    <button class="btn btn-primary" onclick="download()">💾 criteria.json を出力</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 変更サマリー -->
+  <div class="change-banner">
+    <h4>📝 v2.0 での変更点（Excelで修正した内容を反映）</h4>
+    <ul>
+      <li><span class="tag-chg">変更</span> ②南風：発動しきい値 6.0 → <strong>8.0 m/s</strong>、ペナルティ +0.5 → <strong>+0.4</strong></li>
+      <li><span class="tag-new">新規</span> ②北風・東西風：共通「風速しきい値」を追加（<strong>8.0 m/s</strong> 超の場合のみ風向補正が発動）</li>
+      <li><span class="tag-chg">変更</span> ②東西風ペナルティ：+0.25 → <strong>+0.2</strong></li>
+      <li><span class="tag-chg">変更</span> ④複合悪化：条件を「逆波または交差波」→ <strong>逆波のみ</strong>、ペナルティ +0.2 → <strong>+0.1</strong></li>
+      <li><span class="tag-chg">変更</span> ⑤風速トレンド：変化しきい値 0.5 → <strong>2.0 m/s</strong>（感度を下げた）</li>
+    </ul>
+  </div>
+
+  <div class="how-to">
+    <h3>📋 使い方</h3>
+    <ol>
+      <li>下の各ファクターの数値を変更する（変更されたフィールドはオレンジ色で表示）</li>
+      <li>「💾 criteria.json を出力」ボタンをクリックして保存</li>
+      <li>GitHub リポジトリの <strong>出船判定条件＿調整ソフト/criteria.json</strong> を出力したファイルで上書きアップロード</li>
+      <li>GitHub Pages 経由で出船判断システム（index.html）が自動的に新しい基準を参照する</li>
+    </ol>
+  </div>
+
+  <div class="info-bar">
+    <span>📄</span>
+    <span>バージョン: <strong id="info-ver">2.0</strong></span>
+    <span style="color:#ccc">|</span>
+    <span>最終更新: <strong id="info-date">—</strong></span>
+    <span style="color:#ccc">|</span>
+    <span id="change-count" style="color:#e67e22;font-weight:600;display:none">⚠ 未保存の変更があります</span>
+    <span id="no-changes" style="color:#27ae60">✓ 変更なし</span>
+  </div>
+
+  <!-- ① 最終判定閾値 -->
+  <div class="section">
+    <div class="sec-head" onclick="toggleSec(this)">
+      <span class="sec-icon">📊</span>
+      <div>
+        <div class="sec-title">① 最終判定 閾値（rawScore の区切り値）</div>
+        <div class="sec-desc">rawScore がこの値以下のとき、対応する判定ランクになる。波高ベース＋各補正の合計値と比較。</div>
+      </div>
+      <span class="sec-badge badge-gry">閾値設定</span>
+    </div>
+    <div class="sec-body">
+      <div class="threshold-row">
+        <div class="th-card th-j3">
+          <div class="th-sym" style="color:#1a6b1a">◎</div>
+          <div class="th-name">釣り日和</div>
+          <div class="field-group">
+            <label class="field-label">rawScore ≤</label>
+            <input class="field-input" id="f_excellent_max" type="number" step="0.1" min="0" max="2" oninput="mark(this)">
+            <div class="field-unit">m（波高換算）</div>
+          </div>
+        </div>
+        <div class="th-card th-j2">
+          <div class="th-sym" style="color:#1a3d8c">○</div>
+          <div class="th-name">出船可能</div>
+          <div class="field-group">
+            <label class="field-label">rawScore ≤</label>
+            <input class="field-input" id="f_good_max" type="number" step="0.1" min="0" max="3" oninput="mark(this)">
+            <div class="field-unit">m（波高換算）</div>
+          </div>
+        </div>
+        <div class="th-card th-j1">
+          <div class="th-sym" style="color:#7a5800">△</div>
+          <div class="th-name">未定・要確認</div>
+          <div class="field-group">
+            <label class="field-label">rawScore ≤</label>
+            <input class="field-input" id="f_caution_max" type="number" step="0.1" min="0" max="4" oninput="mark(this)">
+            <div class="field-unit">m（それ超 → × 出船不可）</div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-bar" id="prev-threshold"></div>
+    </div>
+  </div>
+
+  <!-- ② 風向補正 -->
+  <div class="section">
+    <div class="sec-head" onclick="toggleSec(this)">
+      <span class="sec-icon">🧭</span>
+      <div>
+        <div class="sec-title">② 風向補正（室戸岬 地形特性）</div>
+        <div class="sec-desc">風速しきい値を超えた場合のみ風向補正が発動。弱風時（≤ 8m/s）はどの風向でも補正なし。</div>
+      </div>
+      <span class="sec-badge badge-red">悪化リスク</span>
+    </div>
+    <div class="sec-body">
+      <div class="fields-grid">
+
+        <!-- 共通風速しきい値（新規追加） -->
+        <div class="field-group" style="grid-column:1/-1;background:#e8f8ff;border:1px solid #a0d4f0;border-radius:8px;padding:10px 12px">
+          <label class="field-label">
+            🆕 風向補正の共通 風速しきい値
+            <span class="new-badge">新規追加</span>
+          </label>
+          <input class="field-input" id="f_wind_speed_threshold" type="number" step="0.5" min="0" max="20" oninput="mark(this)">
+          <div class="field-unit">m/s 以下のとき → どの風向でも風向補正は発動しない</div>
+          <div class="field-desc">旧バージョンでは南風のみ個別に風速条件があった。v2.0 から全風向共通のしきい値として統一。</div>
+          <div class="old-val">旧: 南風のみ個別設定（6.0 m/s） → 北風・東西風は風速条件なし（常に発動）</div>
+        </div>
+
+        <!-- 南系設定 -->
+        <div class="sub-header">🔴 南系（悪化）：135°〜225°</div>
+        <div class="field-group">
+          <label class="field-label">南系・方位 最小値</label>
+          <input class="field-input" id="f_south_range_min" type="number" step="1" min="0" max="360" oninput="mark(this)">
+          <div class="field-unit">度（例: 135 = 南東）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">南系・方位 最大値</label>
+          <input class="field-input" id="f_south_range_max" type="number" step="1" min="0" max="360" oninput="mark(this)">
+          <div class="field-unit">度（例: 225 = 南西）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">
+            南風ペナルティ値
+            <span class="changed-badge">変更</span>
+          </label>
+          <input class="field-input" id="f_south_penalty" type="number" step="0.05" min="0" max="2" oninput="mark(this)">
+          <div class="field-unit">rawScore に加算</div>
+          <div class="old-val">旧: <s>+0.5</s> → 新: +0.4</div>
+        </div>
+
+        <!-- 北系設定 -->
+        <div class="sub-header">🟢 北系（良好・補正なし）：315°〜45°</div>
+        <div class="field-group">
+          <label class="field-label">北系・方位 最小値</label>
+          <input class="field-input" id="f_north_range_min" type="number" step="1" min="0" max="360" oninput="mark(this)">
+          <div class="field-unit">度（例: 315 = 北西）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">北系・方位 最大値</label>
+          <input class="field-input" id="f_north_range_max" type="number" step="1" min="0" max="360" oninput="mark(this)">
+          <div class="field-unit">度（例: 45 = 北東）</div>
+        </div>
+        <div class="field-group" style="background:#efffef;border:1px solid #b0e0b0;border-radius:6px;padding:8px 10px;grid-column:1/-1">
+          <div class="field-label" style="color:#1a6b1a">北系の補正値は常に 0（ペナルティなし）</div>
+          <div class="field-desc" style="color:#2a7a2a">北風は室戸岬では陸からの風のため安全。風速 > 共通しきい値の場合も補正値 0。</div>
+        </div>
+
+        <!-- 東西系設定 -->
+        <div class="sub-header sub-header-orange">🟠 東西系（中程度）：上記以外の方位</div>
+        <div class="field-group">
+          <label class="field-label">
+            東西系ペナルティ値
+            <span class="changed-badge">変更</span>
+          </label>
+          <input class="field-input" id="f_ew_penalty" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">rawScore に加算</div>
+          <div class="old-val">旧: <s>+0.25</s> → 新: +0.2</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 逆波補正 -->
+  <div class="section">
+    <div class="sec-head" onclick="toggleSec(this)">
+      <span class="sec-icon">🌊</span>
+      <div>
+        <div class="sec-title">③ 逆波補正（風向 vs 波向きの角度差）</div>
+        <div class="sec-desc">風と波が逆方向のとき、三角波・急峻波が発生し体感リスクが増大する。</div>
+      </div>
+      <span class="sec-badge badge-red">悪化リスク</span>
+    </div>
+    <div class="sec-body">
+      <div class="fields-grid">
+        <div class="field-group">
+          <label class="field-label">逆波判定 角度差の最小値</label>
+          <input class="field-input" id="f_reverse_angle_min" type="number" step="5" min="0" max="180" oninput="mark(this)">
+          <div class="field-unit">度以上 → 「逆波（真逆）」（例: 120）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">逆波ペナルティ値</label>
+          <input class="field-input" id="f_reverse_penalty" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">rawScore に加算（例: 0.2）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">交差波判定 角度差の最小値</label>
+          <input class="field-input" id="f_cross_angle_min" type="number" step="5" min="0" max="180" oninput="mark(this)">
+          <div class="field-unit">度以上（逆波未満）→「交差波」（例: 90）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">交差波ペナルティ値</label>
+          <input class="field-input" id="f_cross_penalty" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">rawScore に加算（例: 0.1）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 複合補正 -->
+  <div class="section">
+    <div class="sec-head" onclick="toggleSec(this)">
+      <span class="sec-icon">⚡</span>
+      <div>
+        <div class="sec-title">④ 複合悪化補正（②南風 ＋ ③逆波の同時発生）</div>
+        <div class="sec-desc">v2.0: 条件を「逆波のみ」に絞った（旧版は逆波または交差波）。発動条件が厳しくなりペナルティも軽減。</div>
+      </div>
+      <span class="sec-badge badge-prp">複合リスク</span>
+    </div>
+    <div class="sec-body">
+      <div class="fields-grid">
+        <div class="field-group">
+          <label class="field-label">発動する波高の下限</label>
+          <input class="field-input" id="f_wave_height_threshold" type="number" step="0.1" min="0" max="2" oninput="mark(this)">
+          <div class="field-unit">m 超のときのみ発動（例: 0.8）</div>
+          <div class="field-desc">この値以下の穏やかな海況では複合補正を適用しない</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">
+            複合悪化ペナルティ値
+            <span class="changed-badge">変更</span>
+          </label>
+          <input class="field-input" id="f_compound_penalty" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">rawScore に加算</div>
+          <div class="old-val">旧: <s>+0.2</s> → 新: +0.1</div>
+        </div>
+
+        <!-- 複合悪化の条件オプション -->
+        <div class="toggle-row" onclick="toggleCheck('f_compound_include_cross')">
+          <input type="checkbox" id="f_compound_include_cross" onchange="mark(this);checkChanges()">
+          <div>
+            <label class="toggle-row" style="cursor:pointer;background:none;border:none;padding:0" for="f_compound_include_cross">
+              交差波（③-b）も複合悪化の条件に含める
+              <span class="changed-badge">変更</span>
+            </label>
+            <div class="toggle-desc">✅ チェックあり → 南風＋逆波 または 南風＋交差波 で発動（旧バージョンの動作）</div>
+            <div class="toggle-desc">☐ チェックなし → 南風＋逆波のみで発動（v2.0デフォルト）</div>
+            <div class="old-val" style="color:#c0392b;font-size:10px;margin-top:3px">旧: チェックあり（交差波含む）→ 新: チェックなし（逆波のみ）</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ 風速トレンド補正 -->
+  <div class="section">
+    <div class="sec-head" onclick="toggleSec(this)">
+      <span class="sec-icon">📈</span>
+      <div>
+        <div class="sec-title">⑤ 風速トレンド補正（前スロット比）</div>
+        <div class="sec-desc">v2.0: しきい値を 0.5 → 2.0 m/s に引き上げ。小さな変動では補正が発動しなくなった。</div>
+      </div>
+      <span class="sec-badge badge-ylw">増減判定</span>
+    </div>
+    <div class="sec-body">
+      <div class="fields-grid">
+        <div class="field-group">
+          <label class="field-label">
+            トレンド判定の変化量しきい値
+            <span class="changed-badge">変更</span>
+          </label>
+          <input class="field-input" id="f_trend_change_threshold" type="number" step="0.1" min="0" max="5" oninput="mark(this)">
+          <div class="field-unit">m/s（この値以上の変化があった場合のみ発動）</div>
+          <div class="old-val">旧: <s>0.5 m/s</s> → 新: 2.0 m/s</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">風速増加ペナルティ値</label>
+          <input class="field-input" id="f_trend_up_penalty" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">rawScore に加算（例: 0.2）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">風速減少ボーナス値</label>
+          <input class="field-input" id="f_trend_down_bonus" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">rawScore から減算（例: 0.2）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 風波補正 -->
+  <div class="section">
+    <div class="sec-head" onclick="toggleSec(this)">
+      <span class="sec-icon">💨</span>
+      <div>
+        <div class="sec-title">⑥ 風波補正（wind_wave_height）</div>
+        <div class="sec-desc">短周期の急峻な波を評価。小さければボーナス、大きければペナルティ。</div>
+      </div>
+      <span class="sec-badge badge-blue">風波評価</span>
+    </div>
+    <div class="sec-body">
+      <div class="fields-grid">
+        <div class="field-group">
+          <label class="field-label">風波「小」の上限</label>
+          <input class="field-input" id="f_ww_good_max" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">m 以下 → ボーナス発動（例: 0.3）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">風波「小」ボーナス値</label>
+          <input class="field-input" id="f_ww_good_bonus" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">rawScore から減算（例: 0.3）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">風波「大」の下限</label>
+          <input class="field-input" id="f_ww_bad_min" type="number" step="0.05" min="0" max="2" oninput="mark(this)">
+          <div class="field-unit">m 以上 → ペナルティ発動（例: 0.7）</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">風波「大」ペナルティ値</label>
+          <input class="field-input" id="f_ww_bad_penalty" type="number" step="0.05" min="0" max="1" oninput="mark(this)">
+          <div class="field-unit">rawScore に加算（例: 0.3）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// デフォルト値（v2.0 — Excelで修正した内容を反映）
+// ============================================================
+const DEFAULTS = {
+  // ① 判定閾値（変更なし）
+  excellent_max: 0.8,
+  good_max: 1.2,
+  caution_max: 1.6,
+
+  // ② 風向補正（変更あり）
+  wind_speed_threshold: 8.0,      // 【新規】共通風速しきい値（旧:南風のみ6.0）
+  south_range_min: 135,
+  south_range_max: 225,
+  south_penalty: 0.4,             // 【変更】旧: 0.5
+  north_range_min: 315,
+  north_range_max: 45,
+  ew_penalty: 0.2,                // 【変更】旧: 0.25
+
+  // ③ 逆波補正（変更なし）
+  reverse_angle_min: 120,
+  reverse_penalty: 0.2,
+  cross_angle_min: 90,
+  cross_penalty: 0.1,
+
+  // ④ 複合悪化補正（変更あり）
+  wave_height_threshold: 0.8,
+  compound_penalty: 0.1,          // 【変更】旧: 0.2
+  compound_include_cross: false,  // 【新規】交差波を含むか（旧は含む=true相当）
+
+  // ⑤ 風速トレンド補正（変更あり）
+  trend_change_threshold: 2.0,   // 【変更】旧: 0.5
+  trend_up_penalty: 0.2,
+  trend_down_bonus: 0.2,
+
+  // ⑥ 風波補正（変更なし）
+  ww_good_max: 0.3,
+  ww_good_bonus: 0.3,
+  ww_bad_min: 0.7,
+  ww_bad_penalty: 0.3
+};
+
+// ============================================================
+// 初期化
+// ============================================================
+function init() {
+  Object.entries(DEFAULTS).forEach(([key, val]) => {
+    const el = document.getElementById('f_' + key);
+    if (!el) return;
+    if (el.type === 'checkbox') {
+      el.checked = val;
+    } else {
+      el.value = val;
+    }
+  });
+  document.getElementById('info-date').textContent = new Date().toLocaleDateString('ja-JP');
+  updatePreview();
+}
+
+// ============================================================
+// フィールド変更マーク
+// ============================================================
+function mark(el) {
+  const key = el.id.replace('f_', '');
+  const defaultVal = DEFAULTS[key];
+  let isDiff;
+  if (el.type === 'checkbox') {
+    isDiff = el.checked !== defaultVal;
+  } else {
+    isDiff = parseFloat(el.value) !== defaultVal;
+  }
+  if (isDiff) {
+    el.classList.add('changed');
+  } else {
+    el.classList.remove('changed');
+  }
+  checkChanges();
+  updatePreview();
+}
+
+function checkChanges() {
+  const hasChange = Object.keys(DEFAULTS).some(key => {
+    const el = document.getElementById('f_' + key);
+    if (!el) return false;
+    if (el.type === 'checkbox') return el.checked !== DEFAULTS[key];
+    return parseFloat(el.value) !== DEFAULTS[key];
+  });
+  document.getElementById('change-count').style.display = hasChange ? '' : 'none';
+  document.getElementById('no-changes').style.display = hasChange ? 'none' : '';
+}
+
+// ============================================================
+// チェックボックス切り替え
+// ============================================================
+function toggleCheck(id) {
+  const el = document.getElementById(id);
+  if (el && document.activeElement !== el) {
+    el.checked = !el.checked;
+    mark(el);
+  }
+}
+
+// ============================================================
+// 閾値プレビュー更新
+// ============================================================
+function updatePreview() {
+  const em = parseFloat(document.getElementById('f_excellent_max')?.value) || 0.8;
+  const gm = parseFloat(document.getElementById('f_good_max')?.value) || 1.2;
+  const cm = parseFloat(document.getElementById('f_caution_max')?.value) || 1.6;
+  const el = document.getElementById('prev-threshold');
+  if (!el) return;
+  el.innerHTML =
+    `rawScore <span>≤ ${em.toFixed(1)}</span> → ◎ 釣り日和 　` +
+    `<span>≤ ${gm.toFixed(1)}</span> → ○ 出船可能 　` +
+    `<span>≤ ${cm.toFixed(1)}</span> → △ 未定・要確認 　` +
+    `<span>> ${cm.toFixed(1)}</span> → × 出船不可`;
+}
+
+// ============================================================
+// セクション開閉
+// ============================================================
+function toggleSec(head) {
+  const body = head.nextElementSibling;
+  body.style.display = body.style.display === 'none' ? '' : 'none';
+}
+
+// ============================================================
+// デフォルトリセット
+// ============================================================
+function resetAll() {
+  if (!confirm('すべての値をv2.0デフォルトに戻します。よろしいですか？')) return;
+  Object.entries(DEFAULTS).forEach(([key, val]) => {
+    const el = document.getElementById('f_' + key);
+    if (!el) return;
+    if (el.type === 'checkbox') {
+      el.checked = val;
+    } else {
+      el.value = val;
+    }
+    el.classList.remove('changed');
+  });
+  document.getElementById('change-count').style.display = 'none';
+  document.getElementById('no-changes').style.display = '';
+  updatePreview();
+  showToast('v2.0 デフォルト値に戻しました');
+}
+
+// ============================================================
+// 値取得ヘルパー
+// ============================================================
+function v(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
+function cb(id) { return document.getElementById(id)?.checked || false; }
+
+// ============================================================
+// JSON 生成 → ダウンロード
+// ============================================================
+function download() {
+  const now = new Date().toISOString().slice(0, 10);
+  const json = {
+    _note: "室戸沖 出船判断システム — 判定基準ファイル（出船判定条件＿調整ソフト.html で編集・出力）",
+    _version: "2.0",
+    _updated: now,
+
+    thresholds: {
+      _note: "最終判定の閾値（rawScore がこの値以下なら該当ランク）",
+      excellent_max: v('f_excellent_max'),
+      good_max:      v('f_good_max'),
+      caution_max:   v('f_caution_max')
+    },
+
+    f2_wind_direction: {
+      _note: "② 風向補正 — 室戸岬地形特性 / wind_speed_threshold 以下の風速では発動しない（全風向共通）",
+      wind_speed_threshold: v('f_wind_speed_threshold'),
+      south_range_min:      v('f_south_range_min'),
+      south_range_max:      v('f_south_range_max'),
+      south_penalty:        v('f_south_penalty'),
+      north_range_min:      v('f_north_range_min'),
+      north_range_max:      v('f_north_range_max'),
+      ew_penalty:           v('f_ew_penalty')
+    },
+
+    f3_opposing_wave: {
+      _note: "③ 逆波補正 — 風向 vs 波向きの角度差",
+      reverse_angle_min: v('f_reverse_angle_min'),
+      reverse_penalty:   v('f_reverse_penalty'),
+      cross_angle_min:   v('f_cross_angle_min'),
+      cross_penalty:     v('f_cross_penalty')
+    },
+
+    f4_compound: {
+      _note: "④ 複合悪化補正 — 南風＋逆波（include_cross_wave=trueなら交差波も含む）の同時発生",
+      wave_height_threshold: v('f_wave_height_threshold'),
+      penalty:               v('f_compound_penalty'),
+      include_cross_wave:    cb('f_compound_include_cross')
+    },
+
+    f5_wind_trend: {
+      _note: "⑤ 風速トレンド補正 — 前スロット（6時間前）との風速変化",
+      change_threshold: v('f_trend_change_threshold'),
+      up_penalty:       v('f_trend_up_penalty'),
+      down_bonus:       v('f_trend_down_bonus')
+    },
+
+    f6_wind_wave: {
+      _note: "⑥ 風波補正 — wind_wave_height の評価",
+      good_max:    v('f_ww_good_max'),
+      good_bonus:  v('f_ww_good_bonus'),
+      bad_min:     v('f_ww_bad_min'),
+      bad_penalty: v('f_ww_bad_penalty')
+    }
+  };
+
+  const blob = new Blob([JSON.stringify(json, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'criteria.json';
+  a.click();
+
+  // 変更フラグをリセット
+  Object.keys(DEFAULTS).forEach(key => {
+    const el = document.getElementById('f_' + key);
+    if (!el) return;
+    if (el.type === 'checkbox') {
+      DEFAULTS[key] = el.checked;
+    } else {
+      DEFAULTS[key] = parseFloat(el.value);
+    }
+    el.classList.remove('changed');
+  });
+  checkChanges();
+  showToast('criteria.json を出力しました。GitHubにアップロードしてください。');
+}
+
+// ============================================================
+// トースト通知
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// 起動
+init();
+</script>
+</body>
+</html>
