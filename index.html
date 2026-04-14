@@ -102,7 +102,7 @@ td{padding:7px 8px;color:#1a1a2e;vertical-align:middle}
     <div class="hd-sub">MUROTO OFFSHORE — 5日間予報 / 0・6・12・18時</div>
   </div>
   <div class="hd-badge">
-    <span class="hd-ver">v3</span>
+    <span class="hd-ver">v4</span>
     <span class="hd-coord">LAT 33.2 / LON 134.2</span>
   </div>
 </header>
@@ -141,19 +141,19 @@ td{padding:7px 8px;color:#1a1a2e;vertical-align:middle}
         </div>
         <div class="lf lf-danger">
           <div class="lf-name">② 風向補正</div>
-          <div class="lf-desc">南系135〜225°かつ>6m/s→+0.5<br>東西系→+0.25 / 北系315〜45°→±0</div>
+          <div class="lf-desc">風速≤8m/s→補正なし（全風向共通）<br>風速>8m/s時: 南系135〜225°→+0.4<br>東西系→+0.2 / 北系315〜45°→±0</div>
         </div>
         <div class="lf lf-danger">
           <div class="lf-name">③ 逆波補正</div>
-          <div class="lf-desc">差≥120°→+0.2 / 差90〜120°→+0.1<br>差&lt;90°→±0</div>
+          <div class="lf-desc">差≥120°→+0.2（逆波）<br>差90〜120°→+0.1（交差波）<br>差&lt;90°→±0</div>
         </div>
         <div class="lf lf-warn">
-          <div class="lf-name">④ グレーゾーン複合補正</div>
-          <div class="lf-desc">波高>0.8m かつ②南風AND③逆波同時→+0.2</div>
+          <div class="lf-name">④ 複合悪化補正</div>
+          <div class="lf-desc">波高>0.8m かつ②南風 かつ③逆波（のみ）→+0.1<br>※交差波では発動しない</div>
         </div>
         <div class="lf">
           <div class="lf-name">⑤ 風速トレンド補正</div>
-          <div class="lf-desc">前比+0.5m/s↑→+0.2<br>前比−0.5m/s↓→−0.2</div>
+          <div class="lf-desc">前比+2.0m/s↑→+0.2<br>前比−2.0m/s↓→−0.2</div>
         </div>
         <div class="lf lf-good">
           <div class="lf-name">⑥ 風波補正</div>
@@ -178,6 +178,82 @@ const WC=['#e06b6b','#d4aa00','#4a80d0','#4a9f4a'];
 const SYM=['×','△','○','◎'];
 let rows=[];
 
+// ============================================================
+// 判定基準（criteria.json から上書きされる / デフォルト値 v2.0）
+// ============================================================
+let C = {
+  // ① 判定閾値（変更なし）
+  excellent_max: 0.8,
+  good_max: 1.2,
+  caution_max: 1.6,
+  // ② 風向補正（v2.0変更）
+  wind_speed_threshold: 8.0,      // 全風向共通しきい値（旧: 南風のみ 6.0）
+  south_range_min: 135,
+  south_range_max: 225,
+  south_penalty: 0.4,             // 旧: 0.5
+  north_range_min: 315,
+  north_range_max: 45,
+  ew_penalty: 0.2,                // 旧: 0.25
+  // ③ 逆波補正（変更なし）
+  reverse_angle_min: 120,
+  reverse_penalty: 0.2,
+  cross_angle_min: 90,
+  cross_penalty: 0.1,
+  // ④ 複合悪化補正（v2.0変更）
+  wave_height_threshold: 0.8,
+  compound_penalty: 0.1,          // 旧: 0.2
+  compound_include_cross: false,  // 旧: true相当（交差波でも発動）→ 新: 逆波のみ
+  // ⑤ 風速トレンド補正（v2.0変更）
+  trend_change_threshold: 2.0,   // 旧: 0.5
+  trend_up_penalty: 0.2,
+  trend_down_bonus: 0.2,
+  // ⑥ 風波補正（変更なし）
+  ww_good_max: 0.3,
+  ww_good_bonus: 0.3,
+  ww_bad_min: 0.7,
+  ww_bad_penalty: 0.3
+};
+
+async function loadCriteria(){
+  try{
+    const res=await fetch('出船判定条件＿調整ソフト/criteria.json?_='+Date.now());
+    if(!res.ok)return;
+    const j=await res.json();
+    const th=j.thresholds||{};
+    const f2=j.f2_wind_direction||{};
+    const f3=j.f3_opposing_wave||{};
+    const f4=j.f4_compound||{};
+    const f5=j.f5_wind_trend||{};
+    const f6=j.f6_wind_wave||{};
+    if(th.excellent_max!=null) C.excellent_max=th.excellent_max;
+    if(th.good_max!=null)      C.good_max=th.good_max;
+    if(th.caution_max!=null)   C.caution_max=th.caution_max;
+    if(f2.wind_speed_threshold!=null)  C.wind_speed_threshold=f2.wind_speed_threshold;
+    if(f2.south_range_min!=null)       C.south_range_min=f2.south_range_min;
+    if(f2.south_range_max!=null)       C.south_range_max=f2.south_range_max;
+    if(f2.south_penalty!=null)         C.south_penalty=f2.south_penalty;
+    if(f2.north_range_min!=null)       C.north_range_min=f2.north_range_min;
+    if(f2.north_range_max!=null)       C.north_range_max=f2.north_range_max;
+    if(f2.ew_penalty!=null)            C.ew_penalty=f2.ew_penalty;
+    if(f3.reverse_angle_min!=null)    C.reverse_angle_min=f3.reverse_angle_min;
+    if(f3.reverse_penalty!=null)      C.reverse_penalty=f3.reverse_penalty;
+    if(f3.cross_angle_min!=null)      C.cross_angle_min=f3.cross_angle_min;
+    if(f3.cross_penalty!=null)        C.cross_penalty=f3.cross_penalty;
+    if(f4.wave_height_threshold!=null) C.wave_height_threshold=f4.wave_height_threshold;
+    if(f4.penalty!=null)               C.compound_penalty=f4.penalty;
+    if(f4.include_cross_wave!=null)    C.compound_include_cross=f4.include_cross_wave;
+    if(f5.change_threshold!=null)     C.trend_change_threshold=f5.change_threshold;
+    if(f5.up_penalty!=null)           C.trend_up_penalty=f5.up_penalty;
+    if(f5.down_bonus!=null)           C.trend_down_bonus=f5.down_bonus;
+    if(f6.good_max!=null)             C.ww_good_max=f6.good_max;
+    if(f6.good_bonus!=null)           C.ww_good_bonus=f6.good_bonus;
+    if(f6.bad_min!=null)              C.ww_bad_min=f6.bad_min;
+    if(f6.bad_penalty!=null)          C.ww_bad_penalty=f6.bad_penalty;
+    const upd=j._updated||'';
+    if(upd) setSt('判定基準: criteria.json ('+upd+') を読み込みました');
+  }catch(_){}
+}
+
 const $=id=>document.getElementById(id);
 const d2d=d=>D16[Math.round(d/22.5)%16];
 const d2a=d=>ARR[Math.round(d/45)%8];
@@ -186,42 +262,59 @@ function showErr(m){const e=$('err');e.style.display='';e.textContent='⚠ '+m}
 function hideErr(){$('err').style.display='none'}
 function angleDiff(a,b){const d=Math.abs((a-b+360)%360);return d>180?360-d:d}
 
+function rawToScore(raw){
+  return raw<=C.excellent_max?3:raw<=C.good_max?2:raw<=C.caution_max?1:0;
+}
+
 function calcScore(wave,windNow,windPrev,windDir,waveDir,windWave){
   const tags=[];
   let s=wave;  // 波高メートル値をベースに使用（低いほど良い）
 
-  const inSouth=windDir>=135&&windDir<=225,inNorth=windDir>=315||windDir<=45;
+  // ② 風向補正: 共通風速しきい値を超えた場合のみ発動（v2.0変更）
+  const inSouth=windDir>=C.south_range_min&&windDir<=C.south_range_max;
+  const inNorth=windDir>=C.north_range_min||windDir<=C.north_range_max;
+  const windAboveThreshold=windNow>C.wind_speed_threshold;
   let southPenalty=false;
-  if(inSouth&&windNow>6){s+=0.5;southPenalty=true;tags.push({cls:'pt-south',lbl:'南風↑'})}
-  else if(inNorth){tags.push({cls:'pt-north',lbl:'北風◎'})}
-  else{s+=0.25;tags.push({cls:'pt-ew',lbl:'東西風'})}
-
-  let opposePenalty=false;
-  if(waveDir!=null){
-    const diff=angleDiff(windDir,waveDir);
-    if(diff>=120){s+=0.2;opposePenalty=true;tags.push({cls:'pt-oppose',lbl:'逆波'})}
-    else if(diff>=90){s+=0.1;opposePenalty=true;tags.push({cls:'pt-cross',lbl:'交差波'})}
+  if(windAboveThreshold){
+    if(inSouth){s+=C.south_penalty;southPenalty=true;tags.push({cls:'pt-south',lbl:'南風↑'})}
+    else if(inNorth){tags.push({cls:'pt-north',lbl:'北風◎'})}
+    else{s+=C.ew_penalty;tags.push({cls:'pt-ew',lbl:'東西風'})}
+  }else{
+    // 弱風時は風向補正なし（北風はラベルのみ表示）
+    if(inNorth) tags.push({cls:'pt-north',lbl:'北風◎'});
   }
 
-  if(wave>0.8&&southPenalty&&opposePenalty){s+=0.2;tags.push({cls:'pt-compound',lbl:'複合悪化'})}
+  // ③ 逆波補正: 逆波と交差波を区別して記録（v2.0: 複合発動条件で使い分け）
+  let reversePenalty=false,crossPenalty=false;
+  if(waveDir!=null){
+    const diff=angleDiff(windDir,waveDir);
+    if(diff>=C.reverse_angle_min){s+=C.reverse_penalty;reversePenalty=true;tags.push({cls:'pt-oppose',lbl:'逆波'})}
+    else if(diff>=C.cross_angle_min){s+=C.cross_penalty;crossPenalty=true;tags.push({cls:'pt-cross',lbl:'交差波'})}
+  }
+
+  // ④ 複合悪化補正: 逆波のみ発動（v2.0変更 / include_cross_wave=trueなら交差波も含む）
+  const compoundTrigger=reversePenalty||(C.compound_include_cross&&crossPenalty);
+  if(wave>C.wave_height_threshold&&southPenalty&&compoundTrigger){s+=C.compound_penalty;tags.push({cls:'pt-compound',lbl:'複合悪化'})}
 
   if(windPrev!=null){
-    if(windNow>windPrev+0.5){s+=0.2;tags.push({cls:'pt-trend-up',lbl:'風↑'})}
-    else if(windNow<windPrev-0.5){s-=0.2;tags.push({cls:'pt-trend-dn',lbl:'風↓'})}
+    if(windNow>windPrev+C.trend_change_threshold){s+=C.trend_up_penalty;tags.push({cls:'pt-trend-up',lbl:'風↑'})}
+    else if(windNow<windPrev-C.trend_change_threshold){s-=C.trend_down_bonus;tags.push({cls:'pt-trend-dn',lbl:'風↓'})}
   }
 
   if(windWave!=null){
-    if(windWave<=0.3){s-=0.3;tags.push({cls:'pt-ww-good',lbl:'風波小'})}
-    else if(windWave>=0.7){s+=0.3;tags.push({cls:'pt-ww-bad',lbl:'風波大'})}
+    if(windWave<=C.ww_good_max){s-=C.ww_good_bonus;tags.push({cls:'pt-ww-good',lbl:'風波小'})}
+    else if(windWave>=C.ww_bad_min){s+=C.ww_bad_penalty;tags.push({cls:'pt-ww-bad',lbl:'風波大'})}
   }
 
   const rawScore=Math.max(0,Math.round(s*10)/10);
-  return{score:rawScore<=0.8?3:rawScore<=1.2?2:rawScore<=1.6?1:0,rawScore,tags};
+  return{score:rawToScore(rawScore),rawScore,tags};
 }
 
 async function run(){
   const btn=$('run-btn');
-  btn.disabled=true;hideErr();$('prog').style.display='block';setSt('データ読み込み中...');
+  btn.disabled=true;hideErr();$('prog').style.display='block';setSt('判定基準を読み込み中...');
+  await loadCriteria();
+  setSt('データ読み込み中...');
   try{
     let rawRows=[],updatedAt=null;
     try{
@@ -295,7 +388,7 @@ function calcDayScores(){
   Object.keys(map).forEach(dt=>{
     const avg=map[dt].reduce((a,b)=>a+b,0)/map[dt].length;
     const raw=Math.max(0,Math.round(avg*10)/10);
-    result[dt]={sc:raw<=0.8?3:raw<=1.2?2:raw<=1.6?1:0,raw};
+    result[dt]={sc:rawToScore(raw),raw};
   });
   return result;
 }
@@ -325,7 +418,7 @@ function renderTable(){
     const wwC=r.windWave==null?'#bbb':r.windWave<=0.3?'#4a80d0':r.windWave>=0.7?'#e06b6b':'#d4aa00';
     const wwH=r.windWave!=null?`<span style="color:${wwC};font-weight:700">${r.windWave.toFixed(2)}m</span>`:'<span style="color:#bbb">—</span>';
     let tr='';
-    if(i>0){const df=r.wind-rows[i-1].wind;tr=df>0.5?'<span style="color:#c0392b;font-size:10px">↑</span>':df<-0.5?'<span style="color:#27ae60;font-size:10px">↓</span>':'';}
+    if(i>0){const df=r.wind-rows[i-1].wind;tr=df>C.trend_change_threshold?'<span style="color:#c0392b;font-size:10px">↑</span>':df<-C.trend_change_threshold?'<span style="color:#27ae60;font-size:10px">↓</span>':'';}
     const tagH=r.tags.length?`<div class="ptags">${r.tags.map(t=>`<span class="ptag ${t.cls}">${t.lbl}</span>`).join('')}</div>`:'';
     const wdH=r.waveDir!=null?`${d2a(r.waveDir)} ${d2d(r.waveDir)}`:'<span style="color:#bbb">—</span>';
     h+=`<tr>
@@ -339,10 +432,10 @@ function renderTable(){
 </tr>`;
   });
   h+=`</tbody></table></div><div class="legend">
-<span class="leg"><span class="leg-dot" style="background:#4a9f4a"></span>◎ 3 ≤0.8m</span>
-<span class="leg"><span class="leg-dot" style="background:#4a80d0"></span>○ 2 ≤1.2m</span>
-<span class="leg"><span class="leg-dot" style="background:#d4aa00"></span>△ 1 ≤1.6m</span>
-<span class="leg"><span class="leg-dot" style="background:#e06b6b"></span>× 0 >1.6m</span>
+<span class="leg"><span class="leg-dot" style="background:#4a9f4a"></span>◎ 3 ≤${C.excellent_max.toFixed(1)}m</span>
+<span class="leg"><span class="leg-dot" style="background:#4a80d0"></span>○ 2 ≤${C.good_max.toFixed(1)}m</span>
+<span class="leg"><span class="leg-dot" style="background:#d4aa00"></span>△ 1 ≤${C.caution_max.toFixed(1)}m</span>
+<span class="leg"><span class="leg-dot" style="background:#e06b6b"></span>× 0 >${C.caution_max.toFixed(1)}m</span>
 <span style="font-size:10px;color:#aaa;margin-left:4px">|</span>
 <span class="leg"><span class="ptag pt-south">南風↑</span></span>
 <span class="leg"><span class="ptag pt-oppose">逆波</span></span>
