@@ -10,7 +10,7 @@
   },
   "f2_wind_direction": {
     "_note": "② 風向補正 — 室戸岬地形特性 / wind_speed_threshold 以下の風速では発動しない（全風向共通）",
-    "wind_speed_threshold": 7,
+    "wind_speed_threshold": 6,
     "south_range_min": 135,
     "south_range_max": 225,
     "south_penalty": 0.4,
