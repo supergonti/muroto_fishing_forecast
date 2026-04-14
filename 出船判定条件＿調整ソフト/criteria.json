@@ -1,0 +1,53 @@
+{
+  "_note": "室戸沖 出船判断システム — 判定基準ファイル（出船判定条件＿調整ソフト.html で編集・出力）",
+  "_version": "2.0",
+  "_updated": "2026-04-14",
+
+  "thresholds": {
+    "_note": "最終判定の閾値（rawScore がこの値以下なら該当ランク）",
+    "excellent_max": 0.8,
+    "good_max": 1.2,
+    "caution_max": 1.6
+  },
+
+  "f2_wind_direction": {
+    "_note": "② 風向補正 — 室戸岬地形特性 / wind_speed_threshold 以下の風速では発動しない（全風向共通）",
+    "wind_speed_threshold": 8.0,
+    "south_range_min": 135,
+    "south_range_max": 225,
+    "south_penalty": 0.4,
+    "north_range_min": 315,
+    "north_range_max": 45,
+    "ew_penalty": 0.2
+  },
+
+  "f3_opposing_wave": {
+    "_note": "③ 逆波補正 — 風向 vs 波向きの角度差",
+    "reverse_angle_min": 120,
+    "reverse_penalty": 0.2,
+    "cross_angle_min": 90,
+    "cross_penalty": 0.1
+  },
+
+  "f4_compound": {
+    "_note": "④ 複合悪化補正 — 南風＋逆波（include_cross_wave=trueなら交差波も含む）の同時発生",
+    "wave_height_threshold": 0.8,
+    "penalty": 0.1,
+    "include_cross_wave": false
+  },
+
+  "f5_wind_trend": {
+    "_note": "⑤ 風速トレンド補正 — 前スロット（6時間前）との風速変化",
+    "change_threshold": 2.0,
+    "up_penalty": 0.2,
+    "down_bonus": 0.2
+  },
+
+  "f6_wind_wave": {
+    "_note": "⑥ 風波補正 — wind_wave_height の評価",
+    "good_max": 0.3,
+    "good_bonus": 0.3,
+    "bad_min": 0.7,
+    "bad_penalty": 0.3
+  }
+}
