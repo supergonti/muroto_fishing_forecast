@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 開発引き継ぎファイル（GitHubには含めない）
+開発引き継ぎファイル/
+MUROTO_DEV.md
+muroto_v2.html

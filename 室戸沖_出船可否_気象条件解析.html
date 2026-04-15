@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>室戸沖 出船可否 気象条件解析レポート</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Meiryo', sans-serif; background: #f0f4f8; color: #2d3748; font-size: 14px; }
+  .header { background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%); color: white; padding: 28px 32px; }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; margin-bottom: 24px; }
+  .grid-1 { margin-bottom: 24px; }
+  .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .card h2 { font-size: 14px; font-weight: 600; color: #4a5568; margin-bottom: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+  .stat-card { background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .stat-label { font-size: 12px; color: #718096; margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 700; }
+  .stat-sub { font-size: 12px; color: #718096; margin-top: 4px; }
+  .ok-color { color: #2f855a; }
+  .blue-color { color: #2b6cb0; }
+  .note-color { color: #c05621; }
+  .premise-box { background: #ebf8ff; border: 2px solid #4299e1; border-radius: 10px; padding: 18px 20px; margin-bottom: 24px; }
+  .premise-box h3 { font-size: 14px; font-weight: 700; color: #1a365d; margin-bottom: 10px; }
+  .premise-box p { font-size: 13px; color: #2c5282; line-height: 1.8; }
+  .premise-box strong { color: #1a365d; }
+  .envelope-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 24px; }
+  .envelope-item { background: white; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-top: 4px solid #4299e1; }
+  .envelope-item h3 { font-size: 12px; font-weight: 700; color: #4a5568; margin-bottom: 10px; }
+  .envelope-item table { width: 100%; font-size: 12px; }
+  .envelope-item td { padding: 3px 0; }
+  .envelope-item td:last-child { text-align: right; font-weight: 600; color: #2b6cb0; }
+  /* insight-box: フォントサイズを2pt下げ (12→10px) */
+  .insight-box { background: #fffbeb; border: 1px solid #f6e05e; border-radius: 8px; padding: 12px 14px; margin-top: 10px; }
+  .insight-box p { font-size: 10px; color: #744210; line-height: 1.7; }
+  .insight-box strong { color: #5c370e; }
+  .insight-box.blue { background: #ebf8ff; border-color: #bee3f8; }
+  .insight-box.blue p { color: #2c5282; }
+  .insight-box.blue strong { color: #1a365d; }
+  .insight-box.green { background: #f0fff4; border-color: #9ae6b4; }
+  .insight-box.green p { color: #22543d; }
+  .insight-box.green strong { color: #1c4532; }
+  .section-title { font-size: 16px; font-weight: 700; color: #2d3748; margin-bottom: 14px; margin-top: 4px; display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; display: inline-block; width: 4px; height: 18px; background: #3182ce; border-radius: 2px; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.data-table th { background: #edf2f7; padding: 8px 10px; text-align: left; font-weight: 600; color: #4a5568; }
+  table.data-table td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+  table.data-table tr:last-child td { border-bottom: none; }
+  canvas { max-height: 280px; }
+  @media (max-width: 768px) {
+    .grid-4, .envelope-grid { grid-template-columns: 1fr 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>室戸沖　出船可否 気象条件解析レポート</h1>
+  <p>対象釣り場：室戸沖 / 高知室戸沖 / 室戸岬沖 / 室戸沖（岬沖）　｜　統合釣果データベース V6.0 出力データより解析　｜　解析日：2026年4月14日</p>
+</div>
+
+<div class="container">
+
+  <div class="premise-box">
+    <h3>【解析の前提】このデータが意味すること</h3>
+    <p>
+      本データは<strong>実際に出船して釣果が得られた日の記録</strong>です。すなわちデータに含まれる日は、ほぼすべて<strong>「出船できた好条件の日」</strong>を表しています。
+      データに含まれない日は「出船予定がなかった日」か「気象悪化で出船できなかった日」のどちらかであり、区別できません。
+      本解析では<strong>「出船可能な気象条件の分布（エンベロープ）」を記述すること</strong>を目的とし、データ内の少数の出船不可事例（7件）による単純な閾値判定は行いません。<br>
+      なお、<strong>最大風速18m/s以上の8日間（異常データ）および出船不可記録7日間を除外</strong>し、出船可能な353日を解析対象としています。
+    </p>
+  </div>
+
+  <div class="section-title">データ概要</div>
+  <div class="grid-4" style="grid-template-columns: repeat(3,1fr);">
+    <div class="stat-card">
+      <div class="stat-label">解析対象日数（出船可のみ）</div>
+      <div class="stat-value blue-color">353日</div>
+      <div class="stat-sub">風速18m/s以上(8日)・出船不可(7日)を除外</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">データ期間</div>
+      <div class="stat-value ok-color">4年</div>
+      <div class="stat-sub">2022〜2026年の出船可能日</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">出船時の卓越風向</div>
+      <div class="stat-value blue-color">北系 66%</div>
+      <div class="stat-sub">NE/N/NNE/NW/NNW が主体</div>
+    </div>
+  </div>
+
+  <div class="section-title">出船可能な気象条件のエンベロープ（353日の分布）</div>
+  <div class="envelope-grid">
+    <div class="envelope-item">
+      <h3>最大波高（m）のパーセンタイル</h3>
+      <table>
+        <tr><td>50%の日（中央値）</td><td>0.80 m 以下</td></tr>
+        <tr><td>75%の日</td><td>1.20 m 以下</td></tr>
+        <tr><td>90%の日</td><td>1.50 m 以下</td></tr>
+        <tr><td>95%の日</td><td>1.80 m 以下</td></tr>
+        <tr><td>99%の日</td><td>2.45 m 以下</td></tr>
+        <tr><td>最大記録値</td><td>2.60 m</td></tr>
+      </table>
+    </div>
+    <div class="envelope-item">
+      <h3>最大風速（m/s）のパーセンタイル</h3>
+      <table>
+        <tr><td>50%の日（中央値）</td><td>7.0 m/s 以下</td></tr>
+        <tr><td>75%の日</td><td>9.4 m/s 以下</td></tr>
+        <tr><td>90%の日</td><td>12.0 m/s 以下</td></tr>
+        <tr><td>95%の日</td><td>14.6 m/s 以下</td></tr>
+        <tr><td>99%の日</td><td>16.4 m/s 以下</td></tr>
+        <tr><td>最大記録値</td><td>17.8 m/s</td></tr>
+      </table>
+    </div>
+    <div class="envelope-item">
+      <h3>風向の分布</h3>
+      <table>
+        <tr><td>北系（NE/N/NNE/NW/NNW）</td><td>232日 65.7%</td></tr>
+        <tr><td>東系（ENE/E/ESE）</td><td>55日 15.6%</td></tr>
+        <tr><td>西系（W/WNW/WSW）</td><td>46日 13.0%</td></tr>
+        <tr><td>南系（SW/S/SE等）</td><td>20日 5.7%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="insight-box blue">
+    <p>
+      <strong>読み方：</strong>出船可能な353日の90%は、波高1.5m以下・風速12m/s以下の条件で記録されている。
+      風向は北系が66%を占め、室戸地方の<strong>冬季北東モンスーン（季節風）が卓越する気候</strong>を反映。
+      北寄りの風は室戸沖での通常の出船条件であり、安全側の条件と言える。
+      南系の風がわずか5.7%に留まるのは、<strong>南寄りの風は台風・南岸低気圧接近時に発生しやすく、そのような日は出船しない（出船できない）</strong>ためと解釈される。
+    </p>
+  </div>
+
+  <div class="section-title">気象データ分布グラフ</div>
+  <div class="grid-2">
+    <div class="card">
+      <h2>最大波高の分布（出船可 353日）</h2>
+      <canvas id="waveHistChart"></canvas>
+      <div class="insight-box green">
+        <p>出船可日の<strong>約80%は波高1.2m以内</strong>。1.5m超は約10%、2.0m超はわずか2%程度。波高が出船可否に最も直結する指標。</p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>最大風速の分布（出船可 353日）</h2>
+      <canvas id="windHistChart"></canvas>
+      <div class="insight-box green">
+        <p>出船可日の<strong>約65%は風速10m/s以内</strong>。14m/s超は全体の約6%で、荒れ気味でも出船した記録が存在する。風速単独より波高との組み合わせが重要。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>風向別 出船日数（出船可 353日）</h2>
+      <canvas id="windDirChart"></canvas>
+      <div class="insight-box">
+        <p>
+          <strong>NE（北東）が最多で19.5%（69日）。</strong>
+          北系で全体の66%を占め、これが室戸沖の通常の出船条件。
+          <strong>南系が少ない</strong>のは、南寄りの風の日は荒天リスクが高く出船しないため。
+        </p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>月別 出船日数（353日の分布）</h2>
+      <canvas id="monthlyChart"></canvas>
+      <div class="insight-box">
+        <p>
+          3月が最多（41日）、8月が最少（22日）。複数年分の合算のため月31日を超える場合がある。
+          月ごとの出船日数の偏りは操業スケジュールや季節的な釣りパターンを反映している。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全体 散布図＋風速帯 -->
+  <div class="grid-2">
+    <div class="card">
+      <h2>風速 × 波高 散布図（出船可 353日）</h2>
+      <canvas id="scatterChart"></canvas>
+      <div class="insight-box">
+        <p>
+          <strong>橙の斜線が80%ライン：</strong>「風速 + 6×波高 = 16.9」を満たす線。353日のうち約80%がこのライン以下に分布。
+          波高0.5〜1.2m・風速4〜10m/sが最も典型的な出船条件。ラインを超えた上位20%は荒れ気味の条件で出船した日。
+        </p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>風速帯別 波高統計（全体：出船可日）</h2>
+      <canvas id="windWaveChart"></canvas>
+      <div class="insight-box">
+        <p>
+          風速14m/s以上では平均波高が<strong>1.2m台</strong>に上昇。
+          風速5〜14m/sでは平均波高0.9〜1.0mとほぼ一定で安定した出船条件。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 風向別 散布図 -->
+  <div class="section-title">風向別 風速×波高 散布図</div>
+  <div class="grid-2">
+    <div class="card">
+      <h2>北系（N/NNE/NE/NW/NNW）─ 232日</h2>
+      <canvas id="scatterNorth"></canvas>
+    </div>
+    <div class="card">
+      <h2>西系（W/WNW/WSW）─ 46日</h2>
+      <canvas id="scatterWest"></canvas>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h2>東系（ENE/E/ESE）─ 55日</h2>
+      <canvas id="scatterEast"></canvas>
+    </div>
+    <div class="card">
+      <h2>南系（S/SSE/SE/SSW/SW）─ 20日</h2>
+      <canvas id="scatterSouth"></canvas>
+    </div>
+  </div>
+  <div class="insight-box blue grid-1">
+    <p>
+      <strong>橙の斜線は全体共通の80%ライン</strong>（風速+6×波高=16.9）。ライン以下の割合が風向によって異なる点に注目。
+      <strong>北系：82%</strong>がライン以下に収まり安定した条件が多い。
+      <strong>南系：70%</strong>しかライン以下にならず、出船しても荒れ気味になりやすいことを示す。
+      西系76%・東系76%は中間。
+    </p>
+  </div>
+
+  <!-- 風向別 風速帯×波高統計 -->
+  <div class="section-title">風向別 風速帯×波高統計</div>
+  <div class="grid-2">
+    <div class="card">
+      <h2>北系（N/NNE/NE/NW/NNW）─ 232日</h2>
+      <canvas id="wwNorth"></canvas>
+    </div>
+    <div class="card">
+      <h2>西系（W/WNW/WSW）─ 46日</h2>
+      <canvas id="wwWest"></canvas>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h2>東系（ENE/E/ESE）─ 55日</h2>
+      <canvas id="wwEast"></canvas>
+    </div>
+    <div class="card">
+      <h2>南系（S/SSE/SE/SSW/SW）─ 20日</h2>
+      <canvas id="wwSouth"></canvas>
+    </div>
+  </div>
+  <div class="insight-box grid-1">
+    <p>
+      <strong>北系は風速14m/sまで安定：</strong>平均波高0.87〜0.97mで大きな変化なし。
+      <strong>南系は高風速帯でデータが少ない：</strong>出船事例自体が少なく、南寄りの風が強い日は出船を避けている実態がうかがえる。
+      <strong>東系・西系：</strong>風速14m/s以上で平均波高が1.2〜1.4mに上昇するが、記録数が少ないため参考値。
+    </p>
+  </div>
+
+  <!-- 考察 -->
+  <div class="section-title">出船可否判断システムへの実装に向けた考察</div>
+  <div class="card grid-1">
+    <h2>データから導かれる実装上の示唆</h2>
+    <div style="font-size:13px; line-height:1.9; color:#2d3748;">
+      <p style="margin-bottom:10px;">
+        <strong>① 波高を主要指標とする：</strong>
+        出船可353日の90%が波高1.5m以下。波高が上昇するほど出船リスクが高まる。
+        <strong>早朝（5〜8時）の予報値または観測値</strong>を優先することを推奨する。
+      </p>
+      <p style="margin-bottom:10px;">
+        <strong>② 風速は補助指標とする：</strong>
+        風速12m/s程度まで出船可の事例が90%を占める。
+        特に<strong>風速10m/s超 かつ 波高1.5m超</strong>の複合条件を警戒域として設定するのが現実的。
+      </p>
+      <p style="margin-bottom:10px;">
+        <strong>③ 風向は南系に注意：</strong>
+        北系は室戸沖の通常卓越風で出船可が多い。
+        <strong>南系の風は年間を通じた出船可記録がわずか6%</strong>であり、南寄りの風が強まる場合は出船不可リスクが高まると考えられる。
+      </p>
+      <p>
+        <strong>④ データ拡充の重要性：</strong>
+        本データは出船可能日のみの記録。今後、<strong>出船できなかった日の気象データ</strong>も積極的に蓄積することで
+        「出船可能な条件」と「出船不可の条件」の境界をより明確にできる。
+        理想的には<strong>50〜100件程度の出船不可事例</strong>があれば統計的に有意な境界条件を導出できる。
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== 全体データ（風速 < 18m/s） =====
+const D = {
+  scatter: {
+    ok_wind: [10.0,6.6,3.3,7.8,5.6,5.9,8.6,3.3,9.9,10.3,2.7,5.7,3.9,7.6,14.2,7.0,4.9,9.2,7.9,6.7,4.5,15.4,8.8,17.3,7.8,6.2,6.1,3.5,11.2,3.4,3.0,4.6,3.6,8.7,7.1,9.2,7.1,3.1,8.8,7.8,6.7,7.6,5.7,2.3,7.9,5.6,6.3,13.5,5.4,4.9,3.2,5.0,5.6,6.5,5.8,14.9,4.4,2.9,4.5,5.4,14.6,16.1,6.5,6.3,4.9,4.9,4.2,9.0,7.4,12.1,8.3,8.7,7.0,5.3,2.7,7.0,4.9,2.4,3.2,8.1,5.0,3.6,13.1,7.8,6.4,9.5,3.2,5.6,4.3,10.7,2.5,7.0,15.0,4.9,5.8,15.8,8.7,13.7,5.6,3.9,9.1,7.6,3.3,11.3,6.8,5.2,8.9,5.4,7.1,5.6,8.8,1.5,8.6,4.3,4.9,11.0,9.0,5.1,6.3,6.8,2.0,3.4,5.8,9.5,16.0,5.4,10.7,13.0,7.3,15.8,7.5,6.7,7.5,15.4,11.0,4.3,7.0,7.2,7.1,3.9,6.8,6.5,4.4,6.4,9.0,5.5,9.7,9.7,10.5,6.0,3.7,4.0,6.8,8.9,12.2,8.1,6.2,5.8,5.4,5.7,6.5,9.4,6.6,5.7,11.7,10.2,3.9,7.6,4.3,6.3,7.8,4.3,5.9,10.6,4.1,7.5,5.1,9.5,6.1,8.5,2.9,1.5,4.7,13.5,13.0,5.2,5.4,6.2,4.5,7.6,8.4,9.4,7.5,12.0,5.5,11.7,9.6,6.3,4.8,10.0,6.8,7.6,4.4,10.0,3.2,12.6,3.6,7.9,8.8,5.1,3.9,9.7,4.7,3.0,5.2,5.9,7.7,4.0,6.6,4.8,9.8,8.7,2.6,11.2,5.4,2.9,4.7,6.8,9.2,12.0,7.4,11.5,4.5,6.1,10.7,4.0,6.6,11.7,4.3,6.2,3.5,6.6,9.8,7.6,5.2,9.3,5.7,6.6,17.8,9.6,7.7,11.7,9.0,5.2,3.7,7.4,8.7,14.6,13.0,9.8,8.9,9.1,7.6,4.9,7.6,10.5,4.5,6.1,12.0,9.2,4.8,7.6,7.0,8.8,16.5,6.1,13.6,4.4,7.9,3.7,4.7,11.3,11.8,5.6,8.7,6.0,10.1,3.9,8.5,15.1,8.9,4.5,3.6,6.5,3.7,8.3,10.2,5.4,7.8,3.4,5.7,4.6,5.6,8.8,9.2,6.9,10.0,5.9,9.1,8.7,14.5,9.7,11.8,11.4,16.2,17.4,10.6,6.2,8.1,9.4,11.9,4.2,12.3,4.7,15.5,11.5,4.6,13.0,16.3,11.4,9.4,15.0,8.9,3.4,9.6,7.9,6.9,14.6,7.9,5.5,8.9,6.5,11.8,5.0,5.7,4.7,2.2,10.3,9.8,7.2,11.9,3.7,9.3],
+    ok_wave: [0.6,0.6,0.9,1.7,0.7,0.8,0.6,0.7,0.8,0.6,0.6,0.7,0.8,0.8,1.3,0.6,0.6,0.8,0.8,1.1,1.2,1.6,2.5,1.5,1.0,1.0,1.1,1.0,1.6,1.6,0.9,1.0,0.8,0.8,0.7,0.8,0.7,0.5,0.6,0.9,0.8,0.8,0.8,1.2,1.8,1.9,1.1,0.8,1.3,0.9,0.8,0.7,1.2,0.8,1.1,0.7,1.1,0.6,0.9,1.5,1.5,1.5,0.7,0.7,0.7,0.7,0.8,0.3,0.7,0.6,0.6,1.0,0.8,0.8,0.9,0.6,0.7,0.5,0.8,0.7,1.1,0.5,0.7,0.8,0.8,1.1,1.2,1.8,2.6,1.4,0.8,0.9,2.5,1.4,0.7,1.4,0.6,2.0,0.5,0.8,1.4,0.5,0.6,1.0,0.6,0.7,2.3,0.6,0.5,0.7,1.3,0.9,0.5,0.6,0.9,0.6,0.6,0.8,0.5,1.3,1.7,1.1,1.6,1.0,1.9,2.0,1.6,1.2,1.4,1.4,1.1,0.9,1.6,1.4,1.5,1.4,1.2,0.9,1.0,0.9,1.2,0.8,0.8,1.0,0.8,0.7,0.7,1.0,1.2,0.7,0.7,0.7,1.0,1.0,0.9,1.0,0.5,0.7,0.8,1.1,1.8,0.8,0.9,1.1,0.7,1.1,0.6,0.7,0.7,0.9,1.2,2.0,1.2,1.0,0.8,1.2,1.3,1.5,0.7,0.8,0.9,0.9,1.1,0.7,0.4,1.0,0.4,0.5,1.0,0.3,0.8,0.5,0.6,0.6,1.0,1.5,1.4,0.7,0.9,1.0,0.8,1.2,1.3,0.9,0.9,1.3,1.4,0.9,0.7,0.6,0.6,0.6,1.1,0.5,0.6,0.6,0.6,0.8,0.7,0.8,0.8,2.2,0.8,1.0,0.8,2.2,1.4,1.2,0.8,0.7,1.1,0.8,0.8,1.3,0.7,0.5,1.2,0.9,0.5,0.8,1.5,2.2,1.3,0.9,2.2,0.8,0.9,0.8,1.0,1.1,0.9,0.7,0.8,1.0,0.8,1.4,1.0,0.6,1.6,1.3,0.6,0.6,0.6,1.4,0.5,0.6,0.6,0.5,0.6,0.6,1.1,2.1,1.0,1.1,1.6,0.8,0.6,1.0,1.1,1.4,1.1,0.7,1.2,0.7,0.5,1.1,1.4,0.8,0.8,0.7,0.8,0.9,0.8,0.7,0.9,0.9,0.6,0.7,2.5,0.7,0.5,2.4,0.7,0.6,0.5,0.6,1.8,0.4,0.8,0.5,0.9,1.0,1.0,0.9,1.2,1.4,0.7,1.4,1.0,1.2,0.9,0.8,0.8,0.8,1.2,0.7,0.9,0.7,0.7,0.9,0.4,0.8,0.5,0.7,0.6,0.6,0.5,0.4,0.6,1.0,1.1,0.8,1.2,0.9,1.3,0.6,2.0,1.0,1.8,1.5,1.2,0.7,1.4],
+  }
+};
+
+// 風向別散布データ
+const DG = {
+  north: {
+    ok_wind: [6.6,3.3,7.8,5.6,5.9,8.6,3.3,9.9,10.3,2.7,5.7,3.9,7.6,7.0,4.9,9.2,7.9,6.7,4.5,8.8,17.3,6.2,6.1,3.5,11.2,3.4,3.6,8.7,7.1,9.2,7.1,3.1,8.8,7.8,5.7,2.3,5.6,13.5,4.9,5.0,5.6,6.5,5.8,14.9,4.4,4.5,4.9,4.2,9.0,7.4,12.1,8.3,8.7,7.0,5.3,2.7,7.0,4.9,2.4,3.2,7.8,6.4,3.2,4.3,10.7,2.5,15.0,5.8,5.6,3.9,9.1,3.3,6.8,5.2,8.9,5.4,7.1,8.8,1.5,8.6,4.3,11.0,9.0,5.1,6.3,6.8,3.4,5.8,9.5,16.0,10.7,7.3,15.8,7.5,15.4,11.0,4.3,7.2,7.1,3.9,6.4,5.5,9.7,4.0,5.4,5.7,5.7,11.7,10.2,3.9,6.3,7.8,4.3,5.9,4.1,7.5,9.5,6.1,8.5,2.9,1.5,4.7,13.5,13.0,5.2,5.4,6.2,4.5,7.6,8.4,9.4,7.5,12.0,5.5,11.7,9.6,3.2,3.6,7.9,8.8,5.1,3.9,9.7,4.7,3.0,5.9,4.0,6.6,11.2,2.9,6.8,7.4,11.5,4.5,6.1,6.6,6.6,5.7,7.7,11.7,9.0,8.9,9.1,7.6,7.6,10.5,6.1,12.0,9.2,4.8,7.6,7.0,8.8,16.5,6.1,13.6,4.4,7.9,3.7,4.7,6.0,8.9,6.5,8.3,10.2,5.4,7.8,3.4,5.7,5.6,8.8,9.2,6.9,10.0,5.9,9.1,8.7,14.5,9.7,16.2,17.4,10.6,6.2,9.4,11.9,4.2,4.7,15.5,11.5,4.6,13.0,16.3,9.4,15.0,8.9,3.4,9.6,7.9,6.9,14.6,7.9,5.5,8.9,6.5,11.8,5.0,5.7,4.7,2.2,9.8,11.9,3.7],
+    ok_wave: [0.6,0.9,1.7,0.7,0.8,0.6,0.7,0.8,0.6,0.6,0.7,0.8,0.8,0.6,0.6,0.8,0.8,1.1,1.2,2.5,1.5,1.0,1.1,1.0,1.6,1.6,0.8,0.8,0.7,0.8,0.7,0.5,0.6,0.9,0.8,1.2,1.9,0.8,0.9,0.7,1.2,0.8,1.1,0.7,1.1,0.9,0.7,0.8,0.3,0.7,0.6,0.6,1.0,0.8,0.8,0.9,0.6,0.7,0.5,0.8,0.8,0.8,1.2,2.6,1.4,0.8,2.5,0.7,0.5,0.8,1.4,0.6,0.6,0.7,2.3,0.6,0.5,1.3,0.9,0.5,0.6,0.6,0.6,0.8,0.5,1.3,1.1,1.6,1.0,1.9,1.6,1.4,1.4,1.6,1.4,1.5,1.4,0.9,1.0,0.9,1.0,0.7,0.7,0.7,0.8,1.1,1.1,0.7,1.1,0.6,0.9,1.2,2.0,1.2,0.8,1.2,1.5,0.7,0.8,0.9,0.9,1.1,0.7,0.4,1.0,0.4,0.5,1.0,0.3,0.8,0.5,0.6,0.6,1.0,1.5,1.4,0.9,1.4,0.9,0.7,0.6,0.6,0.6,1.1,0.5,0.6,0.8,0.7,1.0,2.2,1.2,1.1,0.8,0.8,1.3,1.2,2.2,0.9,0.9,0.7,0.8,0.6,0.6,0.6,0.5,0.6,0.5,0.6,0.6,1.1,2.1,1.0,1.1,1.6,0.8,0.6,1.0,1.1,1.4,1.1,1.1,0.8,0.7,0.9,0.6,0.7,2.5,0.7,0.5,0.7,0.6,0.5,0.6,1.8,0.4,0.8,0.5,0.9,1.0,1.2,1.4,0.7,1.4,1.2,0.9,0.8,0.8,1.2,0.7,0.9,0.7,0.7,0.4,0.8,0.5,0.7,0.6,0.6,0.5,0.4,0.6,1.0,1.1,0.8,1.2,0.9,1.3,0.6,2.0,1.8,1.2,0.7],
+  },
+  west: {
+    ok_wind: [14.2,6.7,7.6,7.9,6.5,6.3,4.9,5.0,5.6,15.8,8.7,5.6,4.9,7.5,6.8,9.7,10.5,6.0,3.7,6.8,12.2,8.1,6.5,5.1,6.3,4.8,10.0,6.8,5.2,8.7,10.7,4.0,4.3,3.5,9.3,5.2,8.7,9.8,11.8,5.6,8.7,10.1,3.9,3.6,12.3,11.4],
+    ok_wave: [1.3,0.8,0.8,1.8,0.7,0.7,0.7,1.1,1.8,1.4,0.6,0.7,0.9,1.1,1.2,1.0,1.2,0.7,0.7,1.0,0.9,1.0,1.8,1.3,0.7,0.9,1.0,0.8,0.6,2.2,0.7,0.5,0.5,1.5,0.8,1.0,1.0,1.3,1.2,0.7,0.5,1.4,0.8,0.8,0.8,0.9],
+  },
+  east: {
+    ok_wind: [10.0,7.8,3.0,6.3,5.4,14.6,16.1,8.1,3.6,13.1,9.5,7.0,13.7,13.0,6.7,7.0,6.5,4.4,9.0,8.9,5.8,9.4,6.6,7.6,4.3,10.6,7.6,10.0,12.6,9.8,5.4,4.7,9.2,12.0,11.7,6.2,9.8,7.6,5.2,6.6,7.4,4.9,4.5,11.3,8.5,15.1,4.5,3.7,4.6,11.8,11.4,8.1,10.3,7.2,9.3],
+    ok_wave: [0.6,1.0,0.9,1.1,1.5,1.5,1.5,0.7,0.5,0.7,1.1,0.9,2.0,1.2,0.9,1.2,0.8,0.8,0.8,1.0,0.7,0.8,0.9,0.7,0.7,1.0,1.2,0.9,1.3,0.8,0.8,1.4,0.8,0.7,0.9,0.8,1.3,0.9,2.2,0.8,1.4,1.4,0.6,0.7,0.8,0.7,0.9,0.9,2.4,1.0,0.9,1.0,1.0,1.5,1.4],
+  },
+  south: {
+    ok_wind: [15.4,4.6,5.4,3.2,2.9,4.9,7.6,11.3,2.0,5.4,6.2,4.4,7.7,4.8,2.6,17.8,9.6,3.7,14.6,13.0],
+    ok_wave: [1.6,1.0,1.3,0.8,0.6,1.4,0.5,1.0,1.7,2.0,0.5,1.3,0.6,0.8,0.8,1.0,1.1,0.8,0.6,1.6],
+  }
+};
+
+// 風速帯×波高統計（検証済み正確値）
+const DWG = {
+  north: { count:[58,90,50,20,14], wave_mean:[0.97,0.91,0.91,0.87,1.26], wave_max:[2.6,2.5,2.5,1.6,2.5] },
+  west:  { count:[9,19,12,4,2],    wave_mean:[0.81,1.02,1.06,0.95,1.35], wave_max:[1.5,1.8,2.2,1.2,1.4] },
+  east:  { count:[10,18,15,9,3],   wave_mean:[1.05,1.07,0.93,1.04,1.23], wave_max:[2.4,2.2,1.4,2.0,1.5] },
+  south: { count:[9,5,1,2,3],      wave_mean:[1.02,0.98,1.10,1.30,1.07], wave_max:[1.7,2.0,1.1,1.6,1.6] }
+};
+
+const groupMeta = {
+  north: { color:'rgba(49,130,206,0.3)',  border:'rgba(49,130,206,0.6)',  label:'北系' },
+  west:  { color:'rgba(128,90,213,0.3)',  border:'rgba(128,90,213,0.6)',  label:'西系' },
+  east:  { color:'rgba(56,178,172,0.3)',   border:'rgba(56,178,172,0.6)',  label:'東系' },
+  south: { color:'rgba(237,100,54,0.35)',  border:'rgba(237,100,54,0.7)',  label:'南系' }
+};
+const wwLabels = ['0〜5','5〜8','8〜11','11〜14','14〜18'];
+
+// === グラフ描画 ===
+
+// 波高ヒストグラム
+new Chart(document.getElementById('waveHistChart'), {
+  type:'bar', data:{ labels:['〜0.50','〜0.75','〜1.00','〜1.25','〜1.50','〜1.75','〜2.00','〜2.25','〜2.50','〜2.75','〜3.00'],
+    datasets:[{label:'日数',data:[7,114,91,71,29,19,7,9,2,4,0], backgroundColor:'rgba(56,178,172,0.7)', borderColor:'#2c7a7b', borderWidth:1}]},
+  options:{ plugins:{legend:{display:false}}, scales:{ x:{title:{display:true,text:'最大波高(m)'}}, y:{title:{display:true,text:'日数'},beginAtZero:true}}}
+});
+
+// 風速ヒストグラム
+new Chart(document.getElementById('windHistChart'), {
+  type:'bar', data:{ labels:['〜2','〜4','〜6','〜8','〜10','〜12','〜14','〜16','〜18'],
+    datasets:[{label:'日数',data:[2,42,88,86,62,35,16,14,8], backgroundColor:'rgba(49,130,206,0.7)', borderColor:'#2b6cb0', borderWidth:1}]},
+  options:{ plugins:{legend:{display:false}}, scales:{ x:{title:{display:true,text:'最大風速(m/s)'}}, y:{title:{display:true,text:'日数'},beginAtZero:true}}}
+});
+
+// 風向グラフ
+const wdDirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const wdOk = [46,45,69,27,19,9,5,2,1,3,9,11,15,20,36,36];
+const wdColors = wdDirs.map(d => {
+  if (['SE','SSE','S','SSW','SW'].includes(d)) return 'rgba(252,129,74,0.75)';
+  if (['N','NNE','NE','NNW','NW'].includes(d)) return 'rgba(49,130,206,0.7)';
+  return 'rgba(160,174,192,0.65)';
+});
+new Chart(document.getElementById('windDirChart'), {
+  type:'bar', data:{ labels:wdDirs, datasets:[{label:'出船可 日数',data:wdOk, backgroundColor:wdColors, borderWidth:0}]},
+  options:{ plugins:{legend:{display:false}}, scales:{ x:{title:{display:true,text:'風向（青=北系 / オレンジ=南系 / グレー=東西系）'}}, y:{title:{display:true,text:'日数'},beginAtZero:true}}}
+});
+
+// 月別出船日数
+const mCount = [31,21,41,31,30,26,35,22,26,28,30,32];
+new Chart(document.getElementById('monthlyChart'), {
+  type:'bar', data:{ labels:['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+    datasets:[{label:'出船日数',data:mCount, backgroundColor:'rgba(49,130,206,0.65)', borderColor:'#2b6cb0', borderWidth:1}]},
+  options:{ plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.parsed.y}日`}}},
+    scales:{ y:{title:{display:true,text:'出船日数（複数年合算）'},beginAtZero:true}}}
+});
+
+// 80%ライン: wind + 6*wave = 16.92
+// → wave = (16.92 - wind) / 6
+function draw80line(chart) {
+  const ctx2 = chart.ctx, xs = chart.scales.x, ys = chart.scales.y;
+  const x0 = 0, y0 = 16.92 / 6;   // (0, 2.82)
+  const x1 = 16.92, y1 = 0;        // (16.92, 0)
+  ctx2.save();
+  ctx2.setLineDash([8,4]);
+  ctx2.strokeStyle = 'rgba(221,107,32,0.75)';
+  ctx2.lineWidth = 2;
+  ctx2.beginPath();
+  ctx2.moveTo(xs.getPixelForValue(x0), ys.getPixelForValue(Math.min(y0, 3.0)));
+  ctx2.lineTo(xs.getPixelForValue(Math.min(x1, 18)), ys.getPixelForValue(Math.max(y1, 0)));
+  ctx2.stroke();
+  ctx2.fillStyle = 'rgba(221,107,32,0.9)';
+  ctx2.font = '10px sans-serif';
+  ctx2.fillText('80%ライン', xs.getPixelForValue(1), ys.getPixelForValue(2.55));
+  ctx2.restore();
+}
+
+// 全体散布図
+new Chart(document.getElementById('scatterChart'), {
+  type:'scatter', data:{ datasets:[
+    {label:'出船可(n=353)', data:D.scatter.ok_wind.map((w,i)=>({x:w,y:D.scatter.ok_wave[i]})),
+      backgroundColor:'rgba(49,130,206,0.2)', borderColor:'rgba(49,130,206,0.5)', pointRadius:4, borderWidth:1}
+  ]},
+  options:{ plugins:{legend:{position:'top'}, tooltip:{callbacks:{label:c=>`風速:${c.parsed.x}m/s 波高:${c.parsed.y}m`}}},
+    scales:{ x:{title:{display:true,text:'最大風速(m/s)'},min:0,max:18}, y:{title:{display:true,text:'最大波高(m)'},min:0,max:3.0}},
+    animation:{onComplete:function(a){ draw80line(a.chart); }}
+  }
+});
+
+// 全体 風速帯別波高
+new Chart(document.getElementById('windWaveChart'), {
+  data:{ labels:wwLabels, datasets:[
+    {type:'bar',label:'平均波高(m)',data:[0.97,0.95,0.93,0.91,1.25], backgroundColor:'rgba(49,130,206,0.6)', yAxisID:'y'},
+    {type:'bar',label:'最大波高(m)',data:[2.6,2.5,2.5,2.0,2.5], backgroundColor:'rgba(237,137,54,0.5)', yAxisID:'y'},
+    {type:'line',label:'日数',data:[86,132,77,35,23], borderColor:'#4a5568', backgroundColor:'transparent', pointRadius:4, yAxisID:'y2'}
+  ]},
+  options:{ plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}},
+    scales:{ x:{title:{display:true,text:'最大風速帯(m/s)'}}, y:{title:{display:true,text:'波高(m)'},beginAtZero:true,max:3.0,position:'left'},
+      y2:{title:{display:true,text:'日数'},beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}}}
+});
+
+// 風向別散布図
+function makeScatter(id, key) {
+  const gd=DG[key], gm=groupMeta[key];
+  const ds = [{label:gm.label+'('+gd.ok_wind.length+'日)', data:gd.ok_wind.map((w,i)=>({x:w,y:gd.ok_wave[i]})),
+    backgroundColor:gm.color, borderColor:gm.border, pointRadius:4, borderWidth:1}];
+  new Chart(document.getElementById(id), {
+    type:'scatter', data:{datasets:ds},
+    options:{ plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}, tooltip:{callbacks:{label:c=>`風速:${c.parsed.x}m/s 波高:${c.parsed.y}m`}}},
+      scales:{ x:{title:{display:true,text:'最大風速(m/s)'},min:0,max:18}, y:{title:{display:true,text:'最大波高(m)'},min:0,max:3.0}},
+      animation:{onComplete:function(a){ draw80line(a.chart); }}}
+  });
+}
+makeScatter('scatterNorth','north');
+makeScatter('scatterWest','west');
+makeScatter('scatterEast','east');
+makeScatter('scatterSouth','south');
+
+// 風向別 風速帯×波高
+function makeWW(id, key) {
+  const gd=DWG[key], gm=groupMeta[key];
+  new Chart(document.getElementById(id), {
+    data:{ labels:wwLabels, datasets:[
+      {type:'bar',label:'平均波高(m)',data:gd.wave_mean, backgroundColor:gm.border.replace('0.6','0.55'), yAxisID:'y'},
+      {type:'bar',label:'最大波高(m)',data:gd.wave_max, backgroundColor:'rgba(237,137,54,0.5)', yAxisID:'y'},
+      {type:'line',label:'日数',data:gd.count, borderColor:'#4a5568', backgroundColor:'transparent', pointRadius:4, yAxisID:'y2'}
+    ]},
+    options:{ plugins:{legend:{position:'top',labels:{font:{size:10},boxWidth:10}}},
+      scales:{ x:{title:{display:true,text:'最大風速帯(m/s)'}}, y:{title:{display:true,text:'波高(m)'},beginAtZero:true,max:3.0,position:'left'},
+        y2:{title:{display:true,text:'日数'},beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}}}
+  });
+}
+makeWW('wwNorth','north');
+makeWW('wwWest','west');
+makeWW('wwEast','east');
+makeWW('wwSouth','south');
+</script>
+</body>
+</html>
